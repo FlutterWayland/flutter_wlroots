@@ -26,6 +26,61 @@ void message_builder_segment_push_int64(struct message_builder_segment *segment,
 void message_builder_segment_push_float64(struct message_builder_segment *segment, double value);
 void message_builder_segment_push_string(struct message_builder_segment *segment, const char *string);
 void message_builder_segment_push_uint8_list(struct message_builder_segment *segment, const uint8_t *vals, size_t size);
+void message_builder_segment_push_float32_list(struct message_builder_segment *segment, const float *vals, size_t size);
+void message_builder_segment_push_float64_list(struct message_builder_segment *segment, const double *vals, size_t size);
+void message_builder_segment_push_int32_list(struct message_builder_segment *segment, const int32_t *vals, size_t size);
+void message_builder_segment_push_int64_list(struct message_builder_segment *segment, const int64_t *vals, size_t size);
 struct message_builder_segment message_builder_segment_push_list(struct message_builder_segment *segment, size_t size);
 struct message_builder_segment message_builder_segment_push_map(struct message_builder_segment *segment, size_t size);
 void message_builder_segment_finish(struct message_builder_segment *segment);
+
+enum dart_value_type {
+    dvNull,
+    dvBool,
+    dvInt32,
+    dvInt64,
+    dvFloat64,
+    dvString,
+    dvU8List,
+    dvInt32List,
+    dvInt64List,
+    dvFloat32List,
+    dvFloat64List,
+    dvList,
+    dvMap,
+};
+
+struct dart_list {
+    size_t length;
+    struct dart_value *values;
+};
+
+struct dart_map {
+    size_t length;
+    struct dart_value *values;
+};
+
+struct dart_string {
+    size_t length;
+    char *string;
+};
+
+struct dart_value {
+    enum dart_value_type type;
+    union {
+        bool boolean;
+        int32_t i32;
+        int64_t i64;
+        double f64;
+        struct dart_string string;
+        uint8_t *u8List;
+        int32_t *i32List;
+        int64_t *i64List;
+        float *f32List;
+        double *f64List;
+        struct dart_list list;
+        struct dart_map map;
+    };
+};
+
+bool message_read(const uint8_t *buffer, size_t length, size_t *offset, struct dart_value *out);

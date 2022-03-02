@@ -55,29 +55,8 @@
   }\
 } while (0)
 
-struct output {
-	struct wl_list link;
-
-  struct wlr_output *wlr_output;
-  struct fwr_instance *instance;
-
-  struct wl_listener frame;
-  struct wl_listener mode;
-};
-
-struct view {
-  struct wl_list link;
-
-  struct fwr_instance *instance;
-  struct wlr_xdg_surface *surface;
-
-  struct wl_listener map;
-  struct wl_listener unmap;
-  struct wl_listener destroy;
-};
-
 static void output_frame(struct wl_listener *listener, void *data) {
-  struct output *output = wl_container_of(listener, output, frame);
+  struct fwr_output *output = wl_container_of(listener, output, frame);
   struct fwr_instance *instance = output->instance;
   struct wlr_output *wlr_output = output->wlr_output;
   //wlr_log(WLR_INFO, "output frame %d", instance->out_tex);
@@ -114,7 +93,7 @@ static void output_frame(struct wl_listener *listener, void *data) {
 }
 
 static void output_mode(struct wl_listener *listener, void *data) {
-  struct output *output = wl_container_of(listener, output, mode);
+  struct fwr_output *output = wl_container_of(listener, output, mode);
   struct wlr_output *wlr_output = data;
 
   wlr_log(WLR_INFO, "Set output mode");
@@ -147,8 +126,8 @@ static void server_new_output(struct wl_listener *listener, void *data) {
 
   wlr_output_init_render(wlr_output, instance->allocator, instance->renderer);
 
-	struct output *output =
-	  calloc(1, sizeof(struct output));
+	struct fwr_output *output =
+	  calloc(1, sizeof(struct fwr_output));
 	output->wlr_output = wlr_output;
 	output->instance = instance;
 	///* Sets up a listener for the frame notify event. */
@@ -190,8 +169,12 @@ static void cb(const uint8_t *data, size_t size, void *user_data) {
 }
 
 static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
-  struct view *view = wl_container_of(listener, view, map);
+  struct fwr_view *view = wl_container_of(listener, view, map);
   struct fwr_instance *instance = view->instance;
+
+  int32_t pid;
+  uint32_t uid, gid;
+  wl_client_get_credentials(view->surface->client->client, &pid, &uid, &gid);
 
   struct message_builder msg = message_builder_new();
   struct message_builder_segment msg_seg = message_builder_segment(&msg);
@@ -199,9 +182,16 @@ static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
   message_builder_segment_finish(&msg_seg);
 
   msg_seg = message_builder_segment(&msg);
-  struct message_builder_segment arg_seg = message_builder_segment_push_map(&msg_seg, 1);
+  struct message_builder_segment arg_seg = message_builder_segment_push_map(&msg_seg, 4);
   message_builder_segment_push_string(&arg_seg, "handle");
-  message_builder_segment_push_int64(&arg_seg, (int64_t) view);
+  wlr_log(WLR_INFO, "viewhandle %d", view->handle);
+  message_builder_segment_push_int64(&arg_seg, view->handle);
+  message_builder_segment_push_string(&arg_seg, "client_pid");
+  message_builder_segment_push_int64(&arg_seg, pid);
+  message_builder_segment_push_string(&arg_seg, "client_uid");
+  message_builder_segment_push_int64(&arg_seg, uid);
+  message_builder_segment_push_string(&arg_seg, "client_gid");
+  message_builder_segment_push_int64(&arg_seg, gid);
   message_builder_segment_finish(&arg_seg);
 
   message_builder_segment_finish(&msg_seg);
@@ -235,7 +225,7 @@ static void server_new_xdg_surface(struct wl_listener *listener, void *data) {
     return;
   }
 
-  struct view *view = calloc(1, sizeof(struct view));
+  struct fwr_view *view = calloc(1, sizeof(struct fwr_view));
 
   view->instance = instance;
   view->surface = xdg_surface;
@@ -247,8 +237,8 @@ static void server_new_xdg_surface(struct wl_listener *listener, void *data) {
   view->destroy.notify = xdg_toplevel_destroy;
   wl_signal_add(&xdg_surface->events.destroy, &view->destroy);
 
-
-  // TODO add to list
+  uint32_t view_handle = handle_map_add(instance->views, (void*) view);
+  view->handle = view_handle;
 }
 
 static bool engine_cb_renderer_make_current(void *user_data) {
@@ -256,7 +246,7 @@ static bool engine_cb_renderer_make_current(void *user_data) {
 
   eglMakeCurrent(instance->egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, instance->fwr_renderer.flutter_egl_context);
 
-  wlr_log(WLR_DEBUG, "engine_cb_renderer_make_current");
+  //wlr_log(WLR_DEBUG, "engine_cb_renderer_make_current");
   return true;
 }
 static bool engine_cb_renderer_clear_current(void *user_data) {
@@ -265,7 +255,7 @@ static bool engine_cb_renderer_clear_current(void *user_data) {
 
   eglMakeCurrent(instance->egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 
-  wlr_log(WLR_DEBUG, "engine_cb_renderer_clear_current");
+  //wlr_log(WLR_DEBUG, "engine_cb_renderer_clear_current");
   return true;
 }
 
@@ -321,10 +311,18 @@ static void engine_cb_platform_message(
     return;
   }
 
-  //if (strcmp(engine_message->channel, "wlroots") == 0) {
-  //  instance->fl_proc_table.SendPlatformMessageResponse(instance->engine, engine_message->response_handle, NULL, 0);
-  //  return;
-  //}
+  if (strcmp(engine_message->channel, "wlroots") == 0) {
+    size_t offset = 0;
+    struct dart_value value;
+    if (message_read(engine_message->message, engine_message->message_size, &offset, &value)) {
+      wlr_log(WLR_INFO, "yay");
+    } else {
+      wlr_log(WLR_INFO, "nay");
+    }
+
+    instance->fl_proc_table.SendPlatformMessageResponse(instance->engine, engine_message->response_handle, NULL, 0);
+    return;
+  }
 
   // TODO(hansihe): Handle messages
   wlr_log(WLR_INFO, "Platform message: channel: %s", engine_message->channel);
@@ -428,6 +426,8 @@ bool fwr_instance_create(struct fwr_instance_opts opts, struct fwr_instance **in
 		wl_display_destroy(instance->wl_display);
 		return false;
 	}
+
+  instance->views = handle_map_new();
 
   fwr_renderer_init(instance, eglGetProcAddress);
   //fwr_renderer_ensure_fbo(instance, 300, 300);

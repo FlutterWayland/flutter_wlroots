@@ -12,6 +12,10 @@
 #define WLR_USE_UNSTABLE
 #include <wlr/render/egl.h>
 #include <wlr/util/log.h>
+#include <wlr/types/wlr_surface.h>
+#include <wlr/types/wlr_xdg_shell.h>
+#include <wlr/render/wlr_renderer.h>
+#include <wlr/types/wlr_matrix.h>
 
 #include "EGL/egl.h"
 
@@ -85,7 +89,7 @@ static struct fwr_renderer_page_texture* page_get_texture(struct fwr_instance *i
 }
 
 static bool create_backing_store(const FlutterBackingStoreConfig *config, FlutterBackingStore *backing_store_out, void *user_data) {
-  wlr_log(WLR_INFO, "Create backing store");
+  //wlr_log(WLR_INFO, "Create backing store");
 
   struct fwr_instance *instance = user_data;
 
@@ -300,7 +304,9 @@ void fwr_renderer_init(struct fwr_instance *instance, gl_resolve_fn resolver) {
     wlr_log(WLR_ERROR, "Could not init render mutex");
   }
 
-  wlr_egl_make_current(instance->egl);
+  eglMakeCurrent(instance->egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, instance->fwr_renderer.flutter_egl_context);
+
+  //wlr_egl_make_current(instance->egl);
   renderer->quad_rgbx_shader = make_quad_rgbx_shader(instance);
 
   const GLfloat x1 = 0.0;
@@ -336,115 +342,8 @@ void fwr_renderer_init(struct fwr_instance *instance, gl_resolve_fn resolver) {
     wl_list_init(&page->unused_textures);
   }
 
-  //wlr_egl_unset_current(instance->egl);
-
-  //fns->glEnable(0x92E0); // GL_DEBUG_OUTPUT
-
+  eglMakeCurrent(instance->egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, NULL);
 }
-
-//void fwr_renderer_init_fbo(struct fwr_instance *instance, int width, int height) {
-//  struct fwr_renderer *renderer = &instance->fwr_renderer;
-//  struct gl_fns *fns = &renderer->fns;
-//
-//  for (int i = 0; i < FWR_RENDERER_NUM_FBOS; i++) {
-//    GLuint fbo = 0;
-//    fns->glGenFramebuffers(1, &fbo);
-//
-//    fns->glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-//
-//    GLuint tex = 0;
-//    fns->glGenTextures(1, &tex);
-//
-//    fns->glBindTexture(GL_TEXTURE_2D, tex);
-//    fns->glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-//    fns->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-//    fns->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);  
-//    fns->glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
-//
-//    GLenum drawBuffers[1] = {GL_COLOR_ATTACHMENT0};
-//    fns->glDrawBuffers(1, drawBuffers);
-//
-//    fns->glBindFramebuffer(GL_FRAMEBUFFER, 0);
-//
-//    fns->glDisable(GL_DEPTH_TEST);
-//
-//    renderer->fbos[i].fbo = fbo;
-//    renderer->fbos[i].tex = tex;
-//
-//    wlr_log(WLR_INFO, "CREATED FBO %d", fbo);
-//  }
-//
-//  renderer->fbo_inited = true;
-//}
-//
-//void fwr_renderer_deinit_fbo(struct fwr_instance *instance) {
-//  struct fwr_renderer *renderer = &instance->fwr_renderer;
-//  struct gl_fns *fns = &renderer->fns;
-//
-//  for (int i = 0; i < FWR_RENDERER_NUM_FBOS; i++) {
-//    fns->glDeleteFramebuffers(1, &renderer->fbos[i].fbo);
-//    fns->glDeleteTextures(1, &renderer->fbos[i].tex);
-//  }
-//
-//  renderer->fbo_inited = false;
-//}
-//
-//void fwr_renderer_ensure_fbo(struct fwr_instance *instance, int width, int height) {
-//  struct fwr_renderer *renderer = &instance->fwr_renderer;
-//
-//  pthread_mutex_lock(&renderer->render_mutex);
-//
-//  if (renderer->flutter_tex_width != width || renderer->flutter_tex_height != height) {
-//    if (renderer->fbo_inited) {
-//      fwr_renderer_deinit_fbo(instance);
-//    }
-//
-//    fwr_renderer_init_fbo(instance, width, height);
-//
-//    renderer->flutter_tex_height = height;
-//    renderer->flutter_tex_width = width;
-//  }
-//
-//  pthread_mutex_unlock(&renderer->render_mutex);
-//}
-//
-//uint8_t fwr_renderer_get_active_fbo_idx(struct fwr_instance *instance) {
-//  struct fwr_renderer *renderer = &instance->fwr_renderer;
-//  return renderer->current_fbo;
-//}
-//
-//uint8_t fwr_renderer_get_back_fbo_idx(struct fwr_instance *instance) {
-//  struct fwr_renderer *renderer = &instance->fwr_renderer;
-//  if (renderer->current_fbo == 0) {
-//    return 1;
-//  } else {
-//    return 0;
-//  }
-//}
-//
-//GLuint fwr_renderer_get_active_fbo(struct fwr_instance *instance) {
-//  struct fwr_renderer *renderer = &instance->fwr_renderer;
-//  return renderer->fbos[fwr_renderer_get_active_fbo_idx(instance)].fbo;
-//}
-//
-//void fwr_renderer_flip_fbo(struct fwr_instance *instance) {
-//  struct fwr_renderer *renderer = &instance->fwr_renderer;
-//
-//  pthread_mutex_lock(&renderer->render_mutex);
-//
-//  struct fwr_renderer_fbo *fbo = &renderer->fbos[renderer->current_fbo];
-//  if (fbo->sync != 0) {
-//    eglDestroySync(instance->egl->display, fbo->sync);
-//  }
-//  fbo->sync = eglCreateSync(instance->egl->display, EGL_SYNC_FENCE, NULL);
-//
-//  renderer->current_fbo += 1;
-//  if (renderer->current_fbo >= FWR_RENDERER_NUM_FBOS) {
-//    renderer->current_fbo = 0;
-//  }
-//
-//  pthread_mutex_unlock(&renderer->render_mutex);
-//}
 
 void fwr_renderer_render_scene(struct fwr_instance *instance) {
   struct fwr_renderer *renderer = &instance->fwr_renderer;
@@ -458,93 +357,66 @@ void fwr_renderer_render_scene(struct fwr_instance *instance) {
       renderer->current_scene.sync = 0;
   }
 
-  fns->glUseProgram(renderer->quad_rgbx_shader.prog);
-
-  fns->glEnableVertexAttribArray(renderer->quad_rgbx_shader.pos_attrib);
-  fns->glBindBuffer(GL_ARRAY_BUFFER, renderer->quad_vert_buffer);
-  fns->glVertexAttribPointer(renderer->quad_rgbx_shader.pos_attrib, 2, GL_FLOAT, GL_FALSE, 0, (void*) 0);
-
-  fns->glEnableVertexAttribArray(renderer->quad_rgbx_shader.tex_attrib);
-  fns->glBindBuffer(GL_ARRAY_BUFFER, renderer->tex_coord_buffer);
-  fns->glVertexAttribPointer(renderer->quad_rgbx_shader.tex_attrib, 2, GL_FLOAT, GL_FALSE, 0, (void*) 0);
-
-  fns->glActiveTexture(GL_TEXTURE0);
-
   for (int i = 0; i < renderer->current_scene.layers_count; i++) {
     struct fwr_renderer_scene_layer *layer = &renderer->current_scene.layers[i];
     switch (layer->type) {
     case sceneLayerPlatform:
+      uint32_t view_handle = layer->platform.platform_view_id;
+      struct fwr_view *view;
+      if (!handle_map_get(instance->views, view_handle, (void**) &view)) {
+        wlr_log(WLR_ERROR, "Got invalid view handle!");
+      }
+
+      struct wlr_texture *texture = wlr_surface_get_texture(view->surface->surface);
+      if (texture == NULL) continue;
+
+      float matrix[9];
+      enum wl_output_transform transform = wlr_output_transform_invert(view->surface->surface->current.transform);
+
+      double ox = 0, oy = 0;
+      wlr_output_layout_output_coords(
+          view->instance->output_layout, instance->output, &ox, &oy);
+      //ox += view->x + sx, oy += view->y + sy;
+
+      /* We also have to apply the scale factor for HiDPI outputs. This is only
+      * part of the puzzle, TinyWL does not fully support HiDPI. */
+      struct wlr_box box = {
+        .x = ox * instance->output->wlr_output->scale,
+        .y = oy * instance->output->wlr_output->scale,
+        .width = view->surface->surface->current.width * instance->output->wlr_output->scale,
+        .height = view->surface->surface->current.height * instance->output->wlr_output->scale,
+      };
+
+      wlr_matrix_project_box(matrix, &box, transform, 0,
+        instance->output->wlr_output->transform_matrix);
+
+      wlr_render_texture_with_matrix(instance->renderer, texture, matrix, 1.0);
+
       break;
     case sceneLayerTexture:
+      fns->glUseProgram(renderer->quad_rgbx_shader.prog);
+
+      fns->glEnableVertexAttribArray(renderer->quad_rgbx_shader.pos_attrib);
+      fns->glBindBuffer(GL_ARRAY_BUFFER, renderer->quad_vert_buffer);
+      fns->glVertexAttribPointer(renderer->quad_rgbx_shader.pos_attrib, 2, GL_FLOAT, GL_FALSE, 0, (void*) 0);
+
+      fns->glEnableVertexAttribArray(renderer->quad_rgbx_shader.tex_attrib);
+      fns->glBindBuffer(GL_ARRAY_BUFFER, renderer->tex_coord_buffer);
+      fns->glVertexAttribPointer(renderer->quad_rgbx_shader.tex_attrib, 2, GL_FLOAT, GL_FALSE, 0, (void*) 0);
+
+      fns->glActiveTexture(GL_TEXTURE0);
+
       fns->glBindTexture(GL_TEXTURE_2D, layer->texture.texture->texture);
       fns->glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+      fns->glDisableVertexAttribArray(renderer->quad_rgbx_shader.pos_attrib);
+      fns->glDisableVertexAttribArray(renderer->quad_rgbx_shader.tex_attrib);
+      fns->glBindTexture(GL_TEXTURE_2D, 0);
+      fns->glUseProgram(0);
+
       break;
     }
   }
 
-  fns->glDisableVertexAttribArray(renderer->quad_rgbx_shader.pos_attrib);
-  fns->glDisableVertexAttribArray(renderer->quad_rgbx_shader.tex_attrib);
-  fns->glBindTexture(GL_TEXTURE_2D, 0);
-  fns->glUseProgram(0);
-
   pthread_mutex_unlock(&renderer->render_mutex);
 }
-
-//void fwr_renderer_render_flutter_buffer(struct fwr_instance *instance) {
-//  struct fwr_renderer *renderer = &instance->fwr_renderer;
-//  struct gl_fns *fns = &renderer->fns;
-//
-//  if (renderer->fbo_inited) {
-//    //fns->glBindFramebuffer(GL_FRAMEBUFFER, 0);
-//
-//    //fns->glClearColor(0, 0.2, 0, 1);
-//    //fns->glClear(GL_COLOR_BUFFER_BIT);
-//
-//    pthread_mutex_lock(&renderer->render_mutex);
-//
-//    uint8_t back_fbo_idx = fwr_renderer_get_back_fbo_idx(instance);
-//    struct fwr_renderer_fbo *fbo = &renderer->fbos[back_fbo_idx];
-//    GLuint back_fbo_tex = fbo->tex;
-//    EGLSync sync = fbo->sync;
-//    fbo->sync = 0;
-//
-//    pthread_mutex_unlock(&renderer->render_mutex);
-//
-//    //wlr_log(WLR_INFO, "Rendering FBO %d", renderer->fbos[back_fbo_idx].fbo);
-//
-//    if (sync != 0) {
-//      wlr_log(WLR_INFO, "syncing");
-//      eglWaitSync(instance->egl->display, sync, 0);
-//      eglDestroySync(instance->egl->display, sync);
-//    }
-//
-//    fns->glDisable(GL_DEPTH_TEST);
-//    fns->glDisable(GL_BLEND);
-//
-//    fns->glUseProgram(renderer->quad_rgbx_shader.prog);
-//
-//    fns->glEnableVertexAttribArray(renderer->quad_rgbx_shader.pos_attrib);
-//    fns->glBindBuffer(GL_ARRAY_BUFFER, renderer->quad_vert_buffer);
-//    fns->glVertexAttribPointer(renderer->quad_rgbx_shader.pos_attrib, 2, GL_FLOAT, GL_FALSE, 0, (void*) 0);
-//
-//    fns->glEnableVertexAttribArray(renderer->quad_rgbx_shader.tex_attrib);
-//    fns->glBindBuffer(GL_ARRAY_BUFFER, renderer->tex_coord_buffer);
-//    fns->glVertexAttribPointer(renderer->quad_rgbx_shader.tex_attrib, 2, GL_FLOAT, GL_FALSE, 0, (void*) 0);
-//
-//    fns->glActiveTexture(GL_TEXTURE0);
-//    fns->glBindTexture(GL_TEXTURE_2D, back_fbo_tex);
-//
-//    fns->glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-//
-//    fns->glDisableVertexAttribArray(renderer->quad_rgbx_shader.pos_attrib);
-//    fns->glDisableVertexAttribArray(renderer->quad_rgbx_shader.tex_attrib);
-//    fns->glBindTexture(GL_TEXTURE_2D, 0);
-//    fns->glUseProgram(0);
-//
-//    fns->glEnable(GL_BLEND);
-//  } else {
-//    wlr_log(WLR_ERROR, "no flutter fbo");
-//  }
-//}
-
-//void fwr_renderer_nocompositor_

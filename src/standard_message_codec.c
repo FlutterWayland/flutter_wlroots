@@ -8,20 +8,20 @@
 
 #include "standard_message_codec.h"
 
-static const uint8_t kValueNull = 0;
-static const uint8_t kValueTrue = 1;
-static const uint8_t kValueFalse = 2;
-static const uint8_t kValueInt32 = 3;
-static const uint8_t kValueInt64 = 4;
-static const uint8_t kValueFloat64 = 6;
-static const uint8_t kValueString = 7;
-static const uint8_t kValueUint8List = 8;
-static const uint8_t kValueInt32List = 9;
-static const uint8_t kValueInt64List = 10;
-static const uint8_t kValueFloat64List = 11;
-static const uint8_t kValueList = 12;
-static const uint8_t kValueMap = 13;
-static const uint8_t kValueFloat32List = 14;
+#define kValueNull 0
+#define kValueTrue 1
+#define kValueFalse 2
+#define kValueInt32 3
+#define kValueInt64 4
+#define kValueFloat64 6
+#define kValueString 7
+#define kValueUint8List 8
+#define kValueInt32List 9
+#define kValueInt64List 10
+#define kValueFloat64List 11
+#define kValueList 12
+#define kValueMap 13
+#define kValueFloat32List 14
 
 #define CALC_SIZE_LEN(OUT, IN) \
     size_t OUT;\
@@ -333,4 +333,118 @@ void message_builder_segment_finish(struct message_builder_segment *segment) {
     struct message_builder_state *state = segment->state;
 
     state->current_level -= 1;
+}
+
+#define MESSAGE_READ_DEBUG true
+
+#define REQUIRE_DATA(N) if ((length - *offset) < N) { return false; }
+
+#define READ_LENGTH(OUT) \
+    do {\
+        REQUIRE_DATA(1)\
+        uint8_t first = buffer[*offset];\
+        *offset += 1;\
+        if (first == 255) {\
+            REQUIRE_DATA(4)\
+            OUT = *((uint32_t *)(buffer + *offset));\
+            *offset += 4;\
+        } else if (first == 254) {\
+            REQUIRE_DATA(2)\
+            OUT = *((uint16_t *)(buffer + *offset));\
+            *offset += 2;\
+        } else {\
+            OUT = first;\
+        }\
+    } while (0);
+
+bool message_read(const uint8_t *buffer, size_t length, size_t *offset, struct dart_value *out) {
+    size_t s_len;
+
+    REQUIRE_DATA(1)
+    uint8_t type = buffer[*offset];
+    *offset += 1;
+
+    switch (type) {
+    case kValueNull:
+        out->type = dvNull;
+        if (MESSAGE_READ_DEBUG) wlr_log(WLR_INFO, "vNull");
+        return true;
+    case kValueTrue:
+    case kValueFalse:
+        out->type = dvBool;
+        out->boolean = type == kValueTrue;
+        if (MESSAGE_READ_DEBUG) wlr_log(WLR_INFO, "vBool %d", out->boolean);
+        return true;
+    case kValueInt32:
+        REQUIRE_DATA(4)
+        out->type = dvInt32;
+        out->i32 = *((uint32_t*) (buffer + *offset));
+        *offset += 4;
+        if (MESSAGE_READ_DEBUG) wlr_log(WLR_INFO, "vInt32 %d", out->i32);
+        return true;
+    case kValueInt64:
+        REQUIRE_DATA(8)
+        out->type = dvInt64;
+        out->i64 = *((uint64_t*) (buffer + *offset));
+        *offset += 8;
+        if (MESSAGE_READ_DEBUG) wlr_log(WLR_INFO, "vInt64 %ld", out->i64);
+        return true;
+    case kValueFloat64:
+        REQUIRE_DATA(8)
+        out->type = dvFloat64;
+        out->f64 = *((double*) (buffer + *offset));
+        *offset += 8;
+        if (MESSAGE_READ_DEBUG) wlr_log(WLR_INFO, "vInt64 %f", out->f64);
+        return true;
+    case kValueString:
+        READ_LENGTH(s_len)
+
+        out->type = dvString;
+        out->string.length = s_len;
+        out->string.string = malloc(s_len + 1);
+        memcpy(out->string.string, &buffer[*offset], s_len);
+        out->string.string[s_len] = 0;
+
+        if (MESSAGE_READ_DEBUG) wlr_log(WLR_INFO, "vString %s", out->string.string);
+
+        return true;
+
+    case kValueList:
+        READ_LENGTH(s_len)
+
+        if (MESSAGE_READ_DEBUG) wlr_log(WLR_INFO, "> vList %ld", s_len);
+
+        out->type = dvList;
+        out->list.length = s_len;
+        out->list.values = malloc(sizeof(struct dart_value) * s_len);
+        for (int i = 0; i < s_len; i++) {
+            if (!message_read(buffer, length, offset, &out->list.values[i])) {
+                return false;
+            }
+        }
+
+        if (MESSAGE_READ_DEBUG) wlr_log(WLR_INFO, "< vList %ld", s_len);
+
+        return true;
+
+    case kValueMap:
+        READ_LENGTH(s_len)
+
+        out->type = dvList;
+        out->list.length = s_len;
+        out->list.values = malloc(sizeof(struct dart_value) * s_len * 2);
+        for (int i = 0; i < s_len; i++) {
+            size_t base = i * 2;
+            if (!message_read(buffer, length, offset, &out->list.values[base])) {
+                return false;
+            }
+            if (!message_read(buffer, length, offset, &out->list.values[base+1])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    return false;
 }

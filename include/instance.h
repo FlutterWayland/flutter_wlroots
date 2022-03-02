@@ -11,6 +11,7 @@
 #include "shaders.h"
 #include "renderer.h"
 #include "input.h"
+#include "handle_map.h"
 
 struct fwr_instance {
   struct wl_display *wl_display;
@@ -22,6 +23,9 @@ struct fwr_instance {
 
   struct wlr_xdg_shell *xdg_shell;
   struct wl_listener new_xdg_surface;
+
+  // Map of `uint32_t handle` => `struct fwr_view view`
+  struct handle_map *views;
 
   struct wlr_cursor *cursor;
   struct wlr_xcursor_manager *cursor_mgr;
@@ -42,7 +46,7 @@ struct fwr_instance {
 
   struct wlr_output_layout *output_layout;
   // If null, we don't have an output.
-  struct output *output;
+  struct fwr_output *output;
   struct wl_listener new_output;
 
   FlutterEngineProcTable fl_proc_table;
@@ -63,4 +67,27 @@ struct fwr_instance {
   atomic_llong vsync_baton;
 
   struct fwr_renderer fwr_renderer;
+};
+
+struct fwr_output {
+	struct wl_list link;
+
+  struct wlr_output *wlr_output;
+  struct fwr_instance *instance;
+
+  struct wl_listener frame;
+  struct wl_listener mode;
+};
+
+struct fwr_view {
+  struct wl_list link;
+  uint32_t handle;
+
+  struct fwr_instance *instance;
+  struct wlr_xdg_surface *surface;
+
+  struct wl_listener map;
+  struct wl_listener unmap;
+  struct wl_listener destroy;
+  struct wl_listener abc;
 };

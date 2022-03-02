@@ -30,7 +30,7 @@ static const GLchar tex_fragment_src_rgbx[] =
 "uniform sampler2D tex;\n"
 "\n"
 "void main() {\n"
-"  gl_FragColor = vec4(texture2D(tex, v_texcoord).rgb, 1.0);\n"
+"  gl_FragColor = texture2D(tex, v_texcoord);\n"
 "}\n";
 
 GLuint compile_shader(struct fwr_instance *instance, GLuint type, const GLchar *src) {

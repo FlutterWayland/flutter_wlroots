@@ -68,7 +68,7 @@ void engine_platform_task_queue_process(void *user_data) {
   while (head != NULL) {
     struct fwr_render_task *curr = head;
     if (current_time_nanos > head->target_time) {
-      wlr_log(WLR_DEBUG, "running %ld", head->task.task);
+      //wlr_log(WLR_DEBUG, "running %ld", head->task.task);
 
       if (instance->fl_proc_table.RunTask(instance->engine, &curr->task) != kSuccess) {
           wlr_log(WLR_ERROR, "Failed to run render task?!");

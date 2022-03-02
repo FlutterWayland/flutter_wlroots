@@ -1,4 +1,4 @@
-project('flutter wlroots', 'c')
+project('flutter wlroots', 'c', 'cpp')
 
 cc = meson.get_compiler('c')
 

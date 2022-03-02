@@ -2,10 +2,11 @@ import 'dart:developer';
 import 'dart:io';
 
 import 'package:compositor_dart/compositor_dart.dart';
+import 'package:compositor_dart/surface.dart';
 import 'package:flutter/material.dart';
 
 void main() {
-  print("Testing1");
+  Compositor.initLogger();
   runApp(const MyApp());
 }
 
@@ -55,10 +56,17 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   int _counter = 0;
   Compositor compositor = Compositor();
+  Surface? surface;
+
+  _MyHomePageState() {
+    compositor.surfaceMapped.stream.listen((event) {
+      setState(() {
+        surface = event;
+      });
+    });
+  }
 
   void _incrementCounter() {
-    print("wawawewa");
-    log("wawawewa2");
     setState(() {
       // This call to setState tells the Flutter framework that something has
       // changed in this State, which causes it to rerun the build method below
@@ -71,6 +79,13 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    Widget? surfaceView;
+    if (surface != null) {
+      surfaceView = SurfaceView(
+        surface: surface!,
+      );
+    }
+
     // This method is rerun every time setState is called, for instance as done
     // by the _incrementCounter method above.
     //
@@ -110,6 +125,7 @@ class _MyHomePageState extends State<MyHomePage> {
               '$_counter',
               style: Theme.of(context).textTheme.headline4,
             ),
+            SizedBox(width: 500, height: 500, child: surfaceView),
           ],
         ),
       ),

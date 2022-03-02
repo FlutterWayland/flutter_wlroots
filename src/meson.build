@@ -5,4 +5,5 @@ fwr_src += files(
     'input.c',
     'task.c',
     'standard_message_codec.c',
+    'handle_map.cc',
 )
