@@ -8,9 +8,11 @@ endif
 
 embedder_dep = subproject('flutter_embedder').get_variable('embedder_dep')
 
+wlroots_dep = subproject('wlroots', default_options: 'examples=false').get_variable('wlroots')
+
 threads_dep = dependency('threads')
 
-wlroots_dep = dependency('wlroots')
+#wlroots_dep = dependency('wlroots')
 wayland_server_dep = dependency('wayland-server')
 
 glesv2_dep = dependency('glesv2')

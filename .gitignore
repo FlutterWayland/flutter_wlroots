@@ -2,3 +2,4 @@ gen/gl.xml
 build
 build-clang
 .cache
+subprojects/wlroots
