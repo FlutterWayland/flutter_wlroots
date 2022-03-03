@@ -7,6 +7,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <wayland-util.h>
 
 #define WLR_USE_UNSTABLE
@@ -16,6 +17,8 @@
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/render/wlr_renderer.h>
 #include <wlr/types/wlr_matrix.h>
+#include <wlr/types/wlr_presentation_time.h>
+#include <wlr/types/wlr_output_layout.h>
 
 #include "EGL/egl.h"
 
@@ -154,6 +157,8 @@ static bool present_layers(const FlutterLayer** f_layers, size_t layers_count, v
       const FlutterPlatformView *platform_view = f_layer->platform_view;
 
       layer->type = sceneLayerPlatform;
+      layer->offset = f_layer->offset;
+      layer->size = f_layer->size;
       layer->platform.platform_view_id = platform_view->identifier;
       layer->platform.mutations_count = platform_view->mutations_count;
       
@@ -162,6 +167,7 @@ static bool present_layers(const FlutterLayer** f_layers, size_t layers_count, v
         const FlutterPlatformViewMutation *f_mutation = platform_view->mutations[k];
         mutations[k] = *f_mutation;
       }
+      layer->platform.mutations = mutations;
     }
   }
 
@@ -345,9 +351,116 @@ void fwr_renderer_init(struct fwr_instance *instance, gl_resolve_fn resolver) {
   eglMakeCurrent(instance->egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, NULL);
 }
 
-void fwr_renderer_render_scene(struct fwr_instance *instance) {
+static void render_scene_layer_platform(struct fwr_instance *instance, struct fwr_renderer_scene_layer *layer, struct timespec *now) {
+  //wlr_log(WLR_INFO, "pos: %f %f size: %f %f", layer->offset.x, layer->offset.y, layer->size.width, layer->size.height);
+
+  uint32_t view_handle = layer->platform.platform_view_id;
+  struct fwr_view *view;
+  if (!handle_map_get(instance->views, view_handle, (void**) &view)) {
+    wlr_log(WLR_ERROR, "Got invalid view handle!");
+  }
+
+  struct wlr_texture *texture = wlr_surface_get_texture(view->surface->surface);
+  if (texture == NULL) return;
+  //wlr_log(WLR_INFO, "tex: %ld", (uint64_t) texture);
+
+  float matrix[9];
+  enum wl_output_transform transform = wlr_output_transform_invert(view->surface->surface->current.transform);
+
+  double ox = 0, oy = 0;
+  // This shouldn't be needed because we render to the opengl viewport directly without
+  // the layout transformations.
+  // wlr_output_layout_output_coords(
+  //     view->instance->output_layout, instance->output->wlr_output, &ox, &oy);
+
+  // Initial render box.
+  // Located at the origin of the viewport.
+  // Sized to the box size of the platform view.
+  // TODO hidpi?
+  struct wlr_box box = {
+    .x = ox * instance->output->wlr_output->scale,
+    .y = oy * instance->output->wlr_output->scale,
+    .width = layer->size.width * instance->output->wlr_output->scale,
+    .height = layer->size.height * instance->output->wlr_output->scale,
+  };
+
+  wlr_matrix_project_box(matrix, &box, transform, 0,
+    instance->output->wlr_output->transform_matrix);
+
+  double opacity = 1.0;
+
+  //wlr_log(WLR_INFO, "num mutators: %ld", layer->platform.mutations_count);
+  for (int m = 0; m < layer->platform.mutations_count; m++) {
+    FlutterPlatformViewMutation *mutation = &layer->platform.mutations[m];
+    switch (mutation->type) {
+      case kFlutterPlatformViewMutationTypeOpacity: {
+        opacity = mutation->opacity;
+        break;
+      }
+      case kFlutterPlatformViewMutationTypeClipRect: {
+        // TODO
+        break;
+      }
+      case kFlutterPlatformViewMutationTypeClipRoundedRect: {
+        // TODO
+        break;
+      }
+      case kFlutterPlatformViewMutationTypeTransformation: {
+        FlutterTransformation *ft = &mutation->transformation;
+        float transformation[9] = {
+          ft->scaleX, ft->skewX, ft->transX,
+          ft->skewY, ft->scaleY, ft->transY,
+          ft->pers0, ft->pers1, ft->pers2
+        };
+        wlr_matrix_multiply(matrix, transformation, matrix);
+        break;
+      }
+    }
+  }
+
+  wlr_render_texture_with_matrix(instance->renderer, texture, matrix, opacity);
+
+  wlr_presentation_surface_sampled_on_output(instance->presentation, view->surface->surface, instance->output->wlr_output);
+  wlr_surface_send_frame_done(view->surface->surface, now);
+}
+
+static void render_scene_layer_texture(struct fwr_instance *instance, struct fwr_renderer_scene_layer *layer) {
   struct fwr_renderer *renderer = &instance->fwr_renderer;
   struct gl_fns *fns = &renderer->fns;
+
+  // TODO offset to output coordinates?
+  // Should not be neccesary since we render the flutter layers directly to the opengl viewport
+  // as well.
+
+  fns->glUseProgram(renderer->quad_rgbx_shader.prog);
+
+  fns->glEnableVertexAttribArray(renderer->quad_rgbx_shader.pos_attrib);
+  fns->glBindBuffer(GL_ARRAY_BUFFER, renderer->quad_vert_buffer);
+  fns->glVertexAttribPointer(renderer->quad_rgbx_shader.pos_attrib, 2, GL_FLOAT, GL_FALSE, 0, (void*) 0);
+
+  fns->glEnableVertexAttribArray(renderer->quad_rgbx_shader.tex_attrib);
+  fns->glBindBuffer(GL_ARRAY_BUFFER, renderer->tex_coord_buffer);
+  fns->glVertexAttribPointer(renderer->quad_rgbx_shader.tex_attrib, 2, GL_FLOAT, GL_FALSE, 0, (void*) 0);
+
+  fns->glActiveTexture(GL_TEXTURE0);
+
+  fns->glBindTexture(GL_TEXTURE_2D, layer->texture.texture->texture);
+  fns->glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+  fns->glDisableVertexAttribArray(renderer->quad_rgbx_shader.pos_attrib);
+  fns->glDisableVertexAttribArray(renderer->quad_rgbx_shader.tex_attrib);
+
+  fns->glBindTexture(GL_TEXTURE_2D, 0);
+  fns->glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+  fns->glUseProgram(0);
+}
+
+void fwr_renderer_render_scene(struct fwr_instance *instance) {
+  struct fwr_renderer *renderer = &instance->fwr_renderer;
+
+  struct timespec now;
+	clock_gettime(CLOCK_MONOTONIC, &now);
 
   pthread_mutex_lock(&renderer->render_mutex);
 
@@ -361,59 +474,10 @@ void fwr_renderer_render_scene(struct fwr_instance *instance) {
     struct fwr_renderer_scene_layer *layer = &renderer->current_scene.layers[i];
     switch (layer->type) {
     case sceneLayerPlatform:
-      uint32_t view_handle = layer->platform.platform_view_id;
-      struct fwr_view *view;
-      if (!handle_map_get(instance->views, view_handle, (void**) &view)) {
-        wlr_log(WLR_ERROR, "Got invalid view handle!");
-      }
-
-      struct wlr_texture *texture = wlr_surface_get_texture(view->surface->surface);
-      if (texture == NULL) continue;
-
-      float matrix[9];
-      enum wl_output_transform transform = wlr_output_transform_invert(view->surface->surface->current.transform);
-
-      double ox = 0, oy = 0;
-      wlr_output_layout_output_coords(
-          view->instance->output_layout, instance->output, &ox, &oy);
-      //ox += view->x + sx, oy += view->y + sy;
-
-      /* We also have to apply the scale factor for HiDPI outputs. This is only
-      * part of the puzzle, TinyWL does not fully support HiDPI. */
-      struct wlr_box box = {
-        .x = ox * instance->output->wlr_output->scale,
-        .y = oy * instance->output->wlr_output->scale,
-        .width = view->surface->surface->current.width * instance->output->wlr_output->scale,
-        .height = view->surface->surface->current.height * instance->output->wlr_output->scale,
-      };
-
-      wlr_matrix_project_box(matrix, &box, transform, 0,
-        instance->output->wlr_output->transform_matrix);
-
-      wlr_render_texture_with_matrix(instance->renderer, texture, matrix, 1.0);
-
+      render_scene_layer_platform(instance, layer, &now);
       break;
     case sceneLayerTexture:
-      fns->glUseProgram(renderer->quad_rgbx_shader.prog);
-
-      fns->glEnableVertexAttribArray(renderer->quad_rgbx_shader.pos_attrib);
-      fns->glBindBuffer(GL_ARRAY_BUFFER, renderer->quad_vert_buffer);
-      fns->glVertexAttribPointer(renderer->quad_rgbx_shader.pos_attrib, 2, GL_FLOAT, GL_FALSE, 0, (void*) 0);
-
-      fns->glEnableVertexAttribArray(renderer->quad_rgbx_shader.tex_attrib);
-      fns->glBindBuffer(GL_ARRAY_BUFFER, renderer->tex_coord_buffer);
-      fns->glVertexAttribPointer(renderer->quad_rgbx_shader.tex_attrib, 2, GL_FLOAT, GL_FALSE, 0, (void*) 0);
-
-      fns->glActiveTexture(GL_TEXTURE0);
-
-      fns->glBindTexture(GL_TEXTURE_2D, layer->texture.texture->texture);
-      fns->glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-      fns->glDisableVertexAttribArray(renderer->quad_rgbx_shader.pos_attrib);
-      fns->glDisableVertexAttribArray(renderer->quad_rgbx_shader.tex_attrib);
-      fns->glBindTexture(GL_TEXTURE_2D, 0);
-      fns->glUseProgram(0);
-
+      render_scene_layer_texture(instance, layer);
       break;
     }
   }

@@ -1,6 +1,8 @@
 import 'dart:collection';
 
 import 'package:compositor_dart/compositor_dart.dart';
+import 'package:compositor_dart/constants.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -34,12 +36,24 @@ class _SurfaceViewState extends State<SurfaceView> {
     }
   }
 
+  void onEnter(PointerEnterEvent event) {
+    controller.dispatchPointerEvent(event);
+  }
+
+  void onExit(PointerExitEvent event) {
+    controller.dispatchPointerEvent(event);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return PlatformViewSurface(
-      controller: controller, 
-      hitTestBehavior: PlatformViewHitTestBehavior.opaque, 
-      gestureRecognizers: HashSet(),
+    return MouseRegion(
+      child: PlatformViewSurface(
+        controller: controller,
+        hitTestBehavior: PlatformViewHitTestBehavior.opaque,
+        gestureRecognizers: HashSet(),
+      ),
+      onEnter: onEnter,
+      onExit: onExit,
     );
   }
 
@@ -55,8 +69,59 @@ class _CompositorPlatformViewController extends PlatformViewController {
 
   @override
   Future<void> dispatchPointerEvent(PointerEvent event) async {
-    // TODO: implement dispatchPointerEvent
-    //throw UnimplementedError();
+    print("${event.toString()}");
+
+    List data = [
+      surface.handle,
+      event.buttons,
+      event.delta.dx,
+      event.delta.dy,
+      event.device,
+      event.distance,
+      event.down,
+      event.embedderId,
+      event.kind.name,
+      event.localDelta.dx,
+      event.localDelta.dy,
+      event.localPosition.dx,
+      event.localPosition.dy,
+      event.obscured,
+      event.orientation,
+      event.platformData,
+      event.pointer,
+      event.position.dx,
+      event.position.dy,
+      event.pressure,
+      event.radiusMajor,
+      event.radiusMinor,
+      event.size,
+      event.synthesized,
+      event.tilt,
+      event.timeStamp.inMicroseconds,
+    ];
+
+    int eventType = pointerUnknownEvent;
+    if (event is PointerDownEvent) {
+      eventType = pointerDownEvent;
+    } else if (event is PointerUpEvent) {
+      eventType = pointerUpEvent;
+    } else if (event is PointerHoverEvent) {
+      eventType = pointerHoverEvent;
+    } else if (event is PointerMoveEvent) {
+      eventType = pointerMoveEvent;
+    } else if (event is PointerEnterEvent) {
+      eventType = pointerEnterEvent;
+    } else if (event is PointerExitEvent) {
+      eventType = pointerExitEvent;
+    }
+    data.add(eventType);
+
+    print("pointerevent $data");
+
+    await compositor.platform.channel.invokeMethod(
+      "surface_pointer_event",
+      data,
+    );
   }
 
   @override

@@ -20,6 +20,7 @@ struct fwr_instance {
   struct wlr_egl *egl;
   struct wlr_renderer *renderer;
   struct wlr_allocator *allocator;
+  struct wlr_presentation *presentation;
 
   struct wlr_xdg_shell *xdg_shell;
   struct wl_listener new_xdg_surface;
@@ -38,6 +39,7 @@ struct fwr_instance {
   struct wl_listener cursor_touch_up;
   struct wl_listener cursor_touch_motion;
   struct wl_listener cursor_touch_frame;
+  struct wl_listener request_cursor;
   struct fwr_input_state input;
 
   struct wl_listener new_input;
@@ -89,5 +91,5 @@ struct fwr_view {
   struct wl_listener map;
   struct wl_listener unmap;
   struct wl_listener destroy;
-  struct wl_listener abc;
+  struct wl_listener commit;
 };

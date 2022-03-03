@@ -53,6 +53,16 @@
         wlr_log(WLR_ERROR, "Attempted to write to wrong level!");\
     }
 
+#define WRITE_ALIGN_TO(STATE, N) \
+    do {\
+        int num = N - (STATE->buffer_len % N);\
+        for (int i = 0; i < num; i++) {\
+            STATE->buffer[STATE->buffer_len++] = 0;\
+        }\
+    } while (0);
+
+uint8_t method_call_null_success[2] = { 0, 0 };
+
 struct message_builder_state {
     uint8_t *buffer;
     size_t buffer_len;
@@ -163,7 +173,8 @@ void message_builder_segment_push_float64(struct message_builder_segment *segmen
     ASSERT_LEVEL(segment);
 
     struct message_builder_state *state = segment->state;
-    reserve(state, 1 + sizeof(double));
+    reserve(state, 1 + sizeof(double)*2);
+    WRITE_ALIGN_TO(state, 8)
     state->buffer[state->buffer_len++] = kValueFloat64;
     ((double*) (state->buffer + state->buffer_len))[0] = value;
     state->buffer_len += sizeof(double);
@@ -212,7 +223,8 @@ void message_builder_segment_push_int32_list(struct message_builder_segment *seg
 
     CALC_SIZE_LEN(len_size, size);
 
-    reserve(state, 1 + len_size + (size * sizeof(int32_t)));
+    reserve(state, 1 + len_size + ((size + 1) * sizeof(int32_t)));
+    WRITE_ALIGN_TO(state, 4)
 
     state->buffer[state->buffer_len++] = kValueInt32List;
     WRITE_SIZE_LEN(state, size);
@@ -229,7 +241,8 @@ void message_builder_segment_push_int64_list(struct message_builder_segment *seg
 
     CALC_SIZE_LEN(len_size, size);
 
-    reserve(state, 1 + len_size + (size * sizeof(int64_t)));
+    reserve(state, 1 + len_size + ((size + 1) * sizeof(int64_t)));
+    WRITE_ALIGN_TO(state, 8)
 
     state->buffer[state->buffer_len++] = kValueInt64List;
     WRITE_SIZE_LEN(state, size);
@@ -246,7 +259,8 @@ void message_builder_segment_push_float64_list(struct message_builder_segment *s
 
     CALC_SIZE_LEN(len_size, size);
 
-    reserve(state, 1 + len_size + (size * sizeof(double)));
+    reserve(state, 1 + len_size + ((size + 1) * sizeof(double)));
+    WRITE_ALIGN_TO(state, 8)
 
     state->buffer[state->buffer_len++] = kValueFloat64List;
     WRITE_SIZE_LEN(state, size);
@@ -262,8 +276,9 @@ void message_builder_segment_push_float32_list(struct message_builder_segment *s
     struct message_builder_state *state = segment->state;
 
     CALC_SIZE_LEN(len_size, size);
+    WRITE_ALIGN_TO(state, 4)
 
-    reserve(state, 1 + len_size + (size * sizeof(float)));
+    reserve(state, 1 + len_size + ((size + 1) * sizeof(float)));
 
     state->buffer[state->buffer_len++] = kValueFloat32List;
     WRITE_SIZE_LEN(state, size);
@@ -335,7 +350,7 @@ void message_builder_segment_finish(struct message_builder_segment *segment) {
     state->current_level -= 1;
 }
 
-#define MESSAGE_READ_DEBUG true
+#define MESSAGE_READ_DEBUG false
 
 #define REQUIRE_DATA(N) if ((length - *offset) < N) { return false; }
 
@@ -357,6 +372,13 @@ void message_builder_segment_finish(struct message_builder_segment *segment) {
         }\
     } while (0);
 
+#define READ_ALIGN_TO(N) \
+    do {\
+        int num = N - (*offset % N);\
+        REQUIRE_DATA(num);\
+        *offset += num;\
+    } while (0);
+
 bool message_read(const uint8_t *buffer, size_t length, size_t *offset, struct dart_value *out) {
     size_t s_len;
 
@@ -376,34 +398,37 @@ bool message_read(const uint8_t *buffer, size_t length, size_t *offset, struct d
         if (MESSAGE_READ_DEBUG) wlr_log(WLR_INFO, "vBool %d", out->boolean);
         return true;
     case kValueInt32:
-        REQUIRE_DATA(4)
-        out->type = dvInt32;
-        out->i32 = *((uint32_t*) (buffer + *offset));
+        REQUIRE_DATA(4);
+        out->type = dvInteger;
+        out->integer = *((uint32_t*) (buffer + *offset));
         *offset += 4;
-        if (MESSAGE_READ_DEBUG) wlr_log(WLR_INFO, "vInt32 %d", out->i32);
+        if (MESSAGE_READ_DEBUG) wlr_log(WLR_INFO, "vInt32 %ld", out->integer);
         return true;
     case kValueInt64:
         REQUIRE_DATA(8)
-        out->type = dvInt64;
-        out->i64 = *((uint64_t*) (buffer + *offset));
+        out->type = dvInteger;
+        out->integer = *((uint64_t*) (buffer + *offset));
         *offset += 8;
-        if (MESSAGE_READ_DEBUG) wlr_log(WLR_INFO, "vInt64 %ld", out->i64);
+        if (MESSAGE_READ_DEBUG) wlr_log(WLR_INFO, "vInt64 %ld", out->integer);
         return true;
     case kValueFloat64:
+        READ_ALIGN_TO(8)
         REQUIRE_DATA(8)
         out->type = dvFloat64;
         out->f64 = *((double*) (buffer + *offset));
         *offset += 8;
-        if (MESSAGE_READ_DEBUG) wlr_log(WLR_INFO, "vInt64 %f", out->f64);
+        if (MESSAGE_READ_DEBUG) wlr_log(WLR_INFO, "vFloat64 %f", out->f64);
         return true;
     case kValueString:
         READ_LENGTH(s_len)
+        REQUIRE_DATA(s_len)
 
         out->type = dvString;
         out->string.length = s_len;
         out->string.string = malloc(s_len + 1);
         memcpy(out->string.string, &buffer[*offset], s_len);
         out->string.string[s_len] = 0;
+        *offset += s_len;
 
         if (MESSAGE_READ_DEBUG) wlr_log(WLR_INFO, "vString %s", out->string.string);
 
@@ -446,5 +471,8 @@ bool message_read(const uint8_t *buffer, size_t length, size_t *offset, struct d
         return true;
     }
 
+    wlr_log(WLR_ERROR, "No value tag matched: %d", type);
     return false;
 }
+
+void message_free(struct dart_value *value) {}

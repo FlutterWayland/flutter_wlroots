@@ -125,7 +125,11 @@ class _MyHomePageState extends State<MyHomePage> {
               '$_counter',
               style: Theme.of(context).textTheme.headline4,
             ),
-            SizedBox(width: 500, height: 500, child: surfaceView),
+            Container(
+              color: Colors.amber,
+              padding: const EdgeInsets.all(8.0),
+              child: SizedBox(width: 500, height: 500, child: surfaceView),
+            ),
           ],
         ),
       ),

@@ -24,6 +24,16 @@ extern "C" uint32_t handle_map_add(handle_map *map, void *value) {
     return key;
 }
 
+extern "C" bool handle_map_remove(handle_map *map, uint32_t handle) {
+    auto entry = map->map.find(handle);
+    if (entry == map->map.end()) {
+        return false;
+    } else {
+        map->map.erase(entry);
+        return true;
+    }
+}
+
 extern "C" bool handle_map_get(handle_map *map, uint32_t handle, void **out) {
     auto entry = map->map.find(handle);
     if (entry == map->map.end()) {

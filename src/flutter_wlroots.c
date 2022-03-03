@@ -5,6 +5,7 @@
 
 #include <bits/pthreadtypes.h>
 #include <bits/types.h>
+#include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,6 +36,7 @@
 #include <wlr/types/wlr_cursor.h>
 #include <wlr/types/wlr_xcursor_manager.h>
 #include <wlr/types/wlr_matrix.h>
+#include <wlr/types/wlr_presentation_time.h>
 
 #include "wlroots_hacks.h"
 
@@ -73,6 +75,8 @@ static void output_frame(struct wl_listener *listener, void *data) {
     );
     wlr_log(WLR_DEBUG, "Returning baton");
   }
+
+  //wlr_log(WLR_INFO, "render");
 
   wlr_output_attach_render(wlr_output, NULL);
 
@@ -214,7 +218,12 @@ static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
 
   instance->fl_proc_table.PlatformMessageReleaseResponseHandle(instance->engine, response_handle);
 }
-static void xdg_toplevel_unmap(struct wl_listener *listener, void *data) {}
+static void xdg_toplevel_unmap(struct wl_listener *listener, void *data) {
+  struct fwr_view *view = wl_container_of(listener, view, map);
+  struct fwr_instance *instance = view->instance;
+
+  handle_map_remove(instance->views, view->handle);
+}
 static void xdg_toplevel_destroy(struct wl_listener *listener, void *data) {}
 
 static void server_new_xdg_surface(struct wl_listener *listener, void *data) {
@@ -236,6 +245,8 @@ static void server_new_xdg_surface(struct wl_listener *listener, void *data) {
   wl_signal_add(&xdg_surface->events.unmap, &view->unmap);
   view->destroy.notify = xdg_toplevel_destroy;
   wl_signal_add(&xdg_surface->events.destroy, &view->destroy);
+  //view->commit.notify = tmp_on_commit;
+  //wl_signal_add(&xdg_surface->surface->events.commit, &view->commit);
 
   uint32_t view_handle = handle_map_add(instance->views, (void*) view);
   view->handle = view_handle;
@@ -311,21 +322,42 @@ static void engine_cb_platform_message(
     return;
   }
 
+  struct dart_value name = {};
+  struct dart_value args = {};
+
   if (strcmp(engine_message->channel, "wlroots") == 0) {
     size_t offset = 0;
-    struct dart_value value;
-    if (message_read(engine_message->message, engine_message->message_size, &offset, &value)) {
-      wlr_log(WLR_INFO, "yay");
-    } else {
-      wlr_log(WLR_INFO, "nay");
+
+    if (!message_read(engine_message->message, engine_message->message_size, &offset, &name)) {
+      wlr_log(WLR_ERROR, "Error decoding platform message name");
+      goto error;
     }
 
-    instance->fl_proc_table.SendPlatformMessageResponse(instance->engine, engine_message->response_handle, NULL, 0);
-    return;
+    if (!message_read(engine_message->message, engine_message->message_size, &offset, &args)) {
+      wlr_log(WLR_ERROR, "Error decoding platform message args");
+      goto error;
+    }
+
+    if (name.type != dvString) {
+      goto error;
+    }
+    const char *method_name = name.string.string;
+
+    if (strcmp(method_name, "surface_pointer_event") == 0) {
+      fwr_handle_surface_pointer_event_message(instance, engine_message->response_handle, &args);
+      return;
+    }
+
+    wlr_log(WLR_INFO, "Unhandled platform message: channel: %s %s", engine_message->channel, method_name);
+    goto error;
   }
 
+error:
   // TODO(hansihe): Handle messages
-  wlr_log(WLR_INFO, "Platform message: channel: %s", engine_message->channel);
+  wlr_log(WLR_INFO, "Unhandled platform message: channel: %s", engine_message->channel);
+
+  message_free(&name);
+  message_free(&args);
 
   // Send failure
   instance->fl_proc_table.SendPlatformMessageResponse(instance->engine, engine_message->response_handle, NULL, 0);
@@ -411,8 +443,6 @@ bool fwr_instance_create(struct fwr_instance_opts opts, struct fwr_instance **in
 
   fwr_input_init(instance);
 
-	instance->seat = wlr_seat_create(instance->wl_display, "seat0");
-
   const char *socket = wl_display_add_socket_auto(instance->wl_display);
 	if (!socket) {
     wlr_log(WLR_ERROR, "Failed to create Wayland socket");
@@ -431,6 +461,8 @@ bool fwr_instance_create(struct fwr_instance_opts opts, struct fwr_instance **in
 
   fwr_renderer_init(instance, eglGetProcAddress);
   //fwr_renderer_ensure_fbo(instance, 300, 300);
+
+  instance->presentation = wlr_presentation_create(instance->wl_display, instance->backend);
 
   fwr_tasks_init(instance);
 
@@ -502,7 +534,7 @@ bool fwr_instance_create(struct fwr_instance_opts opts, struct fwr_instance **in
 
   wlr_log(WLR_INFO, "Engine Run success!");
 
-  wlr_egl_make_current(instance->egl);
+  //wlr_egl_make_current(instance->egl);
 
   wlr_log(WLR_INFO, "Running Wayland compositor on WAYLAND_DISPLAY=%s", socket);
   wl_display_run(instance->wl_display);

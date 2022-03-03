@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+extern uint8_t method_call_null_success[2];
+
 struct message_builder {
     struct message_builder_state *state;
 };
@@ -37,8 +39,7 @@ void message_builder_segment_finish(struct message_builder_segment *segment);
 enum dart_value_type {
     dvNull,
     dvBool,
-    dvInt32,
-    dvInt64,
+    dvInteger,
     dvFloat64,
     dvString,
     dvU8List,
@@ -69,8 +70,7 @@ struct dart_value {
     enum dart_value_type type;
     union {
         bool boolean;
-        int32_t i32;
-        int64_t i64;
+        int64_t integer;
         double f64;
         struct dart_string string;
         uint8_t *u8List;
@@ -84,3 +84,4 @@ struct dart_value {
 };
 
 bool message_read(const uint8_t *buffer, size_t length, size_t *offset, struct dart_value *out);
+void message_free(struct dart_value *value);
