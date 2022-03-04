@@ -81,10 +81,11 @@ class Compositor {
 
   _CompositorPlatform platform = _CompositorPlatform();
 
-  HashSet<Surface> surfaces = HashSet();
+  HashMap<int, Surface> surfaces = HashMap();
 
   // Emits an event when a surface has been added and is ready to be presented on the screen.
   StreamController<Surface> surfaceMapped = StreamController.broadcast();
+  StreamController<Surface> surfaceUnmapped = StreamController.broadcast();
 
   Compositor() {
     platform.addHandler("surface_map", (call) async {
@@ -96,8 +97,15 @@ class Compositor {
         uid: call.arguments["client_uid"],
         compositor: this,
       );
-      surfaces.add(surface);
+      surfaces[surface.handle] = surface;
       surfaceMapped.add(surface);
+    });
+
+    platform.addHandler("surface_unmap", (call) async {
+      int handle = call.arguments["handle"];
+      Surface surface = surfaces[handle]!;
+      surfaces.remove(handle);
+      surfaceUnmapped.add(surface);
     });
 
     print("sending platform message");

@@ -7,6 +7,43 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
+typedef void _OnWidgetSizeChange(Size? size);
+
+class _MeasureSizeRenderObject extends RenderProxyBox {
+  Size? oldSize;
+  final _OnWidgetSizeChange onChange;
+
+  _MeasureSizeRenderObject(this.onChange);
+
+  @override
+  void performLayout() {
+    super.performLayout();
+
+    Size? newSize = child?.size;
+    if (oldSize == newSize) return;
+
+    oldSize = newSize;
+    WidgetsBinding.instance?.addPostFrameCallback((_) {
+      onChange(newSize);
+    });
+  }
+}
+
+class _MeasureSize extends SingleChildRenderObjectWidget {
+  final _OnWidgetSizeChange onChange;
+
+  const _MeasureSize({
+    Key? key,
+    required this.onChange,
+    required Widget child,
+  }) : super(key: key, child: child);
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _MeasureSizeRenderObject(onChange);
+  }
+}
+
 class SurfaceView extends StatefulWidget {
   final Surface surface;
 
@@ -47,10 +84,19 @@ class _SurfaceViewState extends State<SurfaceView> {
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
-      child: PlatformViewSurface(
-        controller: controller,
-        hitTestBehavior: PlatformViewHitTestBehavior.opaque,
-        gestureRecognizers: HashSet(),
+      child: Focus(
+        child: _MeasureSize(
+          onChange: (size) {
+            if (size != null) {
+              controller.size = size;
+            }
+          }, 
+          child: PlatformViewSurface(
+            controller: controller,
+            hitTestBehavior: PlatformViewHitTestBehavior.opaque,
+            gestureRecognizers: HashSet(),
+          ),
+        ),
       ),
       onEnter: onEnter,
       onExit: onExit,
@@ -61,6 +107,7 @@ class _SurfaceViewState extends State<SurfaceView> {
 
 class _CompositorPlatformViewController extends PlatformViewController {
   Surface surface;
+  Size size = const Size(100, 100);
 
   _CompositorPlatformViewController({required this.surface});
 
@@ -69,7 +116,35 @@ class _CompositorPlatformViewController extends PlatformViewController {
 
   @override
   Future<void> dispatchPointerEvent(PointerEvent event) async {
-    print("${event.toString()}");
+    //print("${event.toString()}");
+
+    int device_kind;
+    switch (event.kind) {
+      case PointerDeviceKind.mouse:
+        device_kind = pointerKindMouse;
+        break;
+      case PointerDeviceKind.touch:
+        device_kind = pointerKindTouch;
+        break;
+      default:
+        device_kind = pointerKindUnknown;
+        break;
+    }
+
+    int eventType = pointerUnknownEvent;
+    if (event is PointerDownEvent) {
+      eventType = pointerDownEvent;
+    } else if (event is PointerUpEvent) {
+      eventType = pointerUpEvent;
+    } else if (event is PointerHoverEvent) {
+      eventType = pointerHoverEvent;
+    } else if (event is PointerMoveEvent) {
+      eventType = pointerMoveEvent;
+    } else if (event is PointerEnterEvent) {
+      eventType = pointerEnterEvent;
+    } else if (event is PointerExitEvent) {
+      eventType = pointerExitEvent;
+    }
 
     List data = [
       surface.handle,
@@ -80,7 +155,7 @@ class _CompositorPlatformViewController extends PlatformViewController {
       event.distance,
       event.down,
       event.embedderId,
-      event.kind.name,
+      device_kind,
       event.localDelta.dx,
       event.localDelta.dy,
       event.localPosition.dx,
@@ -98,25 +173,12 @@ class _CompositorPlatformViewController extends PlatformViewController {
       event.synthesized,
       event.tilt,
       event.timeStamp.inMicroseconds,
+      eventType,
+      size.width,
+      size.height,
     ];
 
-    int eventType = pointerUnknownEvent;
-    if (event is PointerDownEvent) {
-      eventType = pointerDownEvent;
-    } else if (event is PointerUpEvent) {
-      eventType = pointerUpEvent;
-    } else if (event is PointerHoverEvent) {
-      eventType = pointerHoverEvent;
-    } else if (event is PointerMoveEvent) {
-      eventType = pointerMoveEvent;
-    } else if (event is PointerEnterEvent) {
-      eventType = pointerEnterEvent;
-    } else if (event is PointerExitEvent) {
-      eventType = pointerExitEvent;
-    }
-    data.add(eventType);
-
-    print("pointerevent $data");
+    //print("pointerevent $data");
 
     await compositor.platform.channel.invokeMethod(
       "surface_pointer_event",

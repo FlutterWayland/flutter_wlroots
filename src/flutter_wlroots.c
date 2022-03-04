@@ -219,8 +219,37 @@ static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
   instance->fl_proc_table.PlatformMessageReleaseResponseHandle(instance->engine, response_handle);
 }
 static void xdg_toplevel_unmap(struct wl_listener *listener, void *data) {
-  struct fwr_view *view = wl_container_of(listener, view, map);
+  struct fwr_view *view = wl_container_of(listener, view, unmap);
   struct fwr_instance *instance = view->instance;
+
+  struct message_builder msg = message_builder_new();
+  struct message_builder_segment msg_seg = message_builder_segment(&msg);
+  message_builder_segment_push_string(&msg_seg, "surface_unmap");
+  message_builder_segment_finish(&msg_seg);
+
+  msg_seg = message_builder_segment(&msg);
+  struct message_builder_segment arg_seg = message_builder_segment_push_map(&msg_seg, 1);
+  message_builder_segment_push_string(&arg_seg, "handle");
+  message_builder_segment_push_int64(&arg_seg, view->handle);
+  message_builder_segment_finish(&arg_seg);
+
+  message_builder_segment_finish(&msg_seg);
+  uint8_t *msg_buf;
+  size_t msg_buf_len;
+  message_builder_finish(&msg, &msg_buf, &msg_buf_len);
+
+  FlutterPlatformMessageResponseHandle *response_handle;
+  instance->fl_proc_table.PlatformMessageCreateResponseHandle(instance->engine, cb, NULL, &response_handle);
+
+  FlutterPlatformMessage platform_message = {};
+  platform_message.struct_size = sizeof(FlutterPlatformMessage);
+  platform_message.channel = "wlroots";
+  platform_message.message = msg_buf;
+  platform_message.message_size = msg_buf_len;
+  platform_message.response_handle = response_handle;
+  instance->fl_proc_table.SendPlatformMessage(instance->engine, &platform_message);
+
+  free(msg_buf);
 
   handle_map_remove(instance->views, view->handle);
 }

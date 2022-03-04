@@ -270,9 +270,6 @@ void fwr_renderer_init(struct fwr_instance *instance, gl_resolve_fn resolver) {
   fns->glGetIntegerv = (void (*)(GLenum, GLint*)) resolver("glGetIntegerv");
   fns->glGetBooleanv = (void (*)(GLenum, GLboolean*)) resolver("glGetBooleanv");
 
-  //fns->glPushClientAttrib = (void (*)(GLbitfield)) resolver("glPushClientAttrib");
-  //fns->glPopClientAttrib = (void (*)(GLbitfield)) resolver("glPopClientAttrib");
-
   const char *egl_exts = eglQueryString(instance->egl->display, EGL_EXTENSIONS);
   // NOTE(hansihe): Using substring here is not 100% correct but good enough.
   // If a extension is called "EGL_IMG_context_priority_whatever" or something,
@@ -358,6 +355,7 @@ static void render_scene_layer_platform(struct fwr_instance *instance, struct fw
   struct fwr_view *view;
   if (!handle_map_get(instance->views, view_handle, (void**) &view)) {
     wlr_log(WLR_ERROR, "Got invalid view handle!");
+    return;
   }
 
   struct wlr_texture *texture = wlr_surface_get_texture(view->surface->surface);

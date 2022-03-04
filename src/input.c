@@ -181,6 +181,11 @@ static void on_server_new_input(struct wl_listener *listener, void *data) {
 	}
 
   // TODO seat caps
+  uint32_t caps = WL_SEAT_CAPABILITY_POINTER;
+  //if (!wl_list_empty(&server->keyboards)) {
+  //  caps |= WL_SEAT_CAPABILITY_KEYBOARD;
+  //}
+  wlr_seat_set_capabilities(instance->seat, caps);
 }
 
 void fwr_input_init(struct fwr_instance *instance) {
@@ -222,7 +227,7 @@ void fwr_handle_surface_pointer_event_message(struct fwr_instance *instance, con
   if (args->type != dvList) {
     goto error;
   }
-  if (args->list.length != 27) {
+  if (args->list.length != 29) {
     goto error;
   }
 
@@ -267,45 +272,82 @@ void fwr_handle_surface_pointer_event_message(struct fwr_instance *instance, con
     goto success;
   }
 
-  struct dart_value *event_type_val = &args->list.values[26];
-  if (event_type_val->type != dvInteger) {
+  struct dart_value *buttons_val = &args->list.values[1];
+  if (buttons_val->type != dvInteger) {
     goto error;
   }
-  const char event_type = event_type_val->integer;
+  const int buttons = buttons_val->integer;
 
-  double local_pos_x;
-  double local_pos_y;
+  struct dart_value *device_kind_val = &args->list.values[8];
+  if (device_kind_val->type != dvInteger) {
+    goto error;
+  }
+  const int device_kind = device_kind_val->integer;
+
   if (args->list.values[11].type != dvFloat64) {
     goto error;
   }
   if (args->list.values[12].type != dvFloat64) {
     goto error;
   }
-  local_pos_x = args->list.values[11].f64;
-  local_pos_y = args->list.values[12].f64;
+  double local_pos_x = args->list.values[11].f64;
+  double local_pos_y = args->list.values[12].f64;
+
+  if (args->list.values[27].type != dvFloat64) {
+    goto error;
+  }
+  if (args->list.values[28].type != dvFloat64) {
+    goto error;
+  }
+  double widget_size_x = args->list.values[27].f64;
+  double widget_size_y = args->list.values[28].f64;
+
+  struct dart_value *event_type_val = &args->list.values[26];
+  if (event_type_val->type != dvInteger) {
+    goto error;
+  }
+  const int event_type = event_type_val->integer;
 
   if (args->list.values[25].type != dvInteger) {
     goto error;
   }
   int64_t timestamp = args->list.values[25].integer;
 
-  switch (event_type) {
-  case pointerDownEvent:
-    break;
-  case pointerUpEvent:
-    break;
-  case pointerHoverEvent:
-  case pointerEnterEvent:
-  case pointerMoveEvent:
-    wlr_seat_pointer_notify_enter(instance->seat, view->surface->surface, local_pos_x, local_pos_y);
-    wlr_seat_pointer_notify_motion(instance->seat, timestamp / NS_PER_MS, local_pos_x, local_pos_y);
-    break;
-  case pointerExitEvent:
-    wlr_seat_pointer_clear_focus(instance->seat);
-    break;
+  struct wlr_surface_state *surface_state = &view->surface->surface->current;
+
+  double transformed_local_pos_x = local_pos_x / widget_size_x * surface_state->width;
+  double transformed_local_pos_y = local_pos_y / widget_size_y * surface_state->height;
+
+  switch (device_kind) {
+    case pointerKindMouse: {
+      switch (event_type) {
+        case pointerDownEvent:
+          //wlr_log(WLR_INFO, "pressed %d", buttons);
+          wlr_seat_pointer_notify_button(instance->seat, timestamp / NS_PER_MS, 0x110, WLR_BUTTON_PRESSED);
+          break;
+        case pointerUpEvent:
+          //wlr_log(WLR_INFO, "released %d", buttons);
+          wlr_seat_pointer_notify_button(instance->seat, timestamp / NS_PER_MS, 0x110, WLR_BUTTON_RELEASED);
+          break;
+        case pointerHoverEvent:
+        case pointerEnterEvent:
+        case pointerMoveEvent: {
+          wlr_seat_pointer_notify_enter(instance->seat, view->surface->surface, transformed_local_pos_x, transformed_local_pos_y);
+          wlr_seat_pointer_notify_motion(instance->seat, timestamp / NS_PER_MS, transformed_local_pos_x, transformed_local_pos_y);
+          break;
+        }
+        case pointerExitEvent: {
+          wlr_seat_pointer_clear_focus(instance->seat);
+          break;
+        }
+      }
+
+      wlr_seat_pointer_notify_frame(instance->seat);
+
+      break;
+    }
   }
 
-  wlr_seat_pointer_notify_frame(instance->seat);
 
 success:
   instance->fl_proc_table.SendPlatformMessageResponse(instance->engine, handle, method_call_null_success, sizeof(method_call_null_success));

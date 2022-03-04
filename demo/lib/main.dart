@@ -64,6 +64,13 @@ class _MyHomePageState extends State<MyHomePage> {
         surface = event;
       });
     });
+    compositor.surfaceUnmapped.stream.listen((event) {
+      if (surface == event) {
+        setState(() {
+          surface = null;
+        });
+      }
+    });
   }
 
   void _incrementCounter() {
