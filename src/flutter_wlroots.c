@@ -45,6 +45,8 @@
 #include "shaders.h"
 #include "input.h"
 #include "task.h"
+#include "output.h"
+#include "surface.h"
 
 //#define eglGetProcAddr eglGetProcAddress
 //#define __glintercept_log(...) wlr_log(WLR_INFO, __VA_ARGS__)
@@ -56,230 +58,6 @@
     wlr_log(WLR_ERROR, "GL ERROR: %d", err);\
   }\
 } while (0)
-
-static void output_frame(struct wl_listener *listener, void *data) {
-  struct fwr_output *output = wl_container_of(listener, output, frame);
-  struct fwr_instance *instance = output->instance;
-  struct wlr_output *wlr_output = output->wlr_output;
-  //wlr_log(WLR_INFO, "output frame %d", instance->out_tex);
-
-  int64_t vsync_baton = output->instance->vsync_baton;
-  output->instance->vsync_baton = 0;
-  if (vsync_baton != 0) {
-    uint64_t current_time = output->instance->fl_proc_table.GetCurrentTime();
-    output->instance->fl_proc_table.OnVsync(
-      output->instance->engine, 
-      vsync_baton,
-      current_time,
-      current_time + 16600000
-    );
-    wlr_log(WLR_DEBUG, "Returning baton");
-  }
-
-  //wlr_log(WLR_INFO, "render");
-
-  wlr_output_attach_render(wlr_output, NULL);
-
-  struct wlr_renderer *renderer = instance->renderer;
-  wlr_renderer_begin(renderer, wlr_output->width, wlr_output->height);
-
-  float color[4] = {0.0, 0.1, 0.0, 1.0};
-  wlr_renderer_clear(renderer, color);
-
-  //fwr_renderer_render_flutter_buffer(instance);
-  fwr_renderer_render_scene(instance);
-
-	wlr_output_render_software_cursors(wlr_output, NULL);
-
-  wlr_renderer_end(renderer);
-
-  wlr_output_commit(wlr_output);
-}
-
-static void output_mode(struct wl_listener *listener, void *data) {
-  struct fwr_output *output = wl_container_of(listener, output, mode);
-  struct wlr_output *wlr_output = data;
-
-  wlr_log(WLR_INFO, "Set output mode");
-
-  wlr_egl_make_current(output->instance->egl);
-  //fwr_renderer_ensure_fbo(output->instance, wlr_output->width, wlr_output->height);
-  
-  FlutterWindowMetricsEvent window_metrics = {};
-  window_metrics.struct_size = sizeof(FlutterWindowMetricsEvent);
-  window_metrics.width = wlr_output->width;
-  window_metrics.height = wlr_output->height;
-  window_metrics.pixel_ratio = 1.0;
-  FlutterEngineSendWindowMetricsEvent(output->instance->engine, &window_metrics);
-
-}
-
-//void (*eglGetProcAddress(const char *name))(void) {
-//  return 0;
-//}
-
-static void server_new_output(struct wl_listener *listener, void *data) {
-  struct fwr_instance *instance = wl_container_of(listener, instance, new_output);
-  struct wlr_output *wlr_output = data;
-
-  if (instance->output != NULL) {
-    // Only ever have a single output.
-    // This will be the first output we get, all others are ignored.
-    return;
-  }
-
-  wlr_output_init_render(wlr_output, instance->allocator, instance->renderer);
-
-	struct fwr_output *output =
-	  calloc(1, sizeof(struct fwr_output));
-	output->wlr_output = wlr_output;
-	output->instance = instance;
-	///* Sets up a listener for the frame notify event. */
-	output->frame.notify = output_frame;
-	wl_signal_add(&wlr_output->events.frame, &output->frame);
-
-  // TODO handle mode signal, resize fbos
-
-  output->mode.notify = output_mode;
-  wl_signal_add(&wlr_output->events.mode, &output->mode);
-  
-  instance->output = output;
-
-  if (!wl_list_empty(&wlr_output->modes)) {
-    struct wlr_output_mode *mode = wlr_output_preferred_mode(wlr_output);
-    wlr_output_set_mode(wlr_output, mode);
-    wlr_output_enable(wlr_output, true);
-    if (!wlr_output_commit(wlr_output)) {
-      return;
-    }
-
-    wlr_log(WLR_INFO, "Setting mode when creating new output!");
-
-    //fwr_renderer_ensure_fbo(instance, mode->width, mode->height);
-   
-    FlutterWindowMetricsEvent window_metrics = {};
-    window_metrics.struct_size = sizeof(FlutterWindowMetricsEvent);
-    window_metrics.width = mode->width;
-    window_metrics.height = mode->height;
-    window_metrics.pixel_ratio = 1.0;
-    FlutterEngineSendWindowMetricsEvent(instance->engine, &window_metrics);
-  }
-
-  wlr_output_layout_add_auto(instance->output_layout, wlr_output);
-}
-
-static void cb(const uint8_t *data, size_t size, void *user_data) {
-  wlr_log(WLR_INFO, "callback");
-}
-
-static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
-  struct fwr_view *view = wl_container_of(listener, view, map);
-  struct fwr_instance *instance = view->instance;
-
-  int32_t pid;
-  uint32_t uid, gid;
-  wl_client_get_credentials(view->surface->client->client, &pid, &uid, &gid);
-
-  struct message_builder msg = message_builder_new();
-  struct message_builder_segment msg_seg = message_builder_segment(&msg);
-  message_builder_segment_push_string(&msg_seg, "surface_map");
-  message_builder_segment_finish(&msg_seg);
-
-  msg_seg = message_builder_segment(&msg);
-  struct message_builder_segment arg_seg = message_builder_segment_push_map(&msg_seg, 4);
-  message_builder_segment_push_string(&arg_seg, "handle");
-  wlr_log(WLR_INFO, "viewhandle %d", view->handle);
-  message_builder_segment_push_int64(&arg_seg, view->handle);
-  message_builder_segment_push_string(&arg_seg, "client_pid");
-  message_builder_segment_push_int64(&arg_seg, pid);
-  message_builder_segment_push_string(&arg_seg, "client_uid");
-  message_builder_segment_push_int64(&arg_seg, uid);
-  message_builder_segment_push_string(&arg_seg, "client_gid");
-  message_builder_segment_push_int64(&arg_seg, gid);
-  message_builder_segment_finish(&arg_seg);
-
-  message_builder_segment_finish(&msg_seg);
-  uint8_t *msg_buf;
-  size_t msg_buf_len;
-  message_builder_finish(&msg, &msg_buf, &msg_buf_len);
-
-  FlutterPlatformMessageResponseHandle *response_handle;
-  instance->fl_proc_table.PlatformMessageCreateResponseHandle(instance->engine, cb, NULL, &response_handle);
-
-  FlutterPlatformMessage platform_message = {};
-  platform_message.struct_size = sizeof(FlutterPlatformMessage);
-  platform_message.channel = "wlroots";
-  platform_message.message = msg_buf;
-  platform_message.message_size = msg_buf_len;
-  platform_message.response_handle = response_handle;
-  instance->fl_proc_table.SendPlatformMessage(instance->engine, &platform_message);
-
-  free(msg_buf);
-
-  instance->fl_proc_table.PlatformMessageReleaseResponseHandle(instance->engine, response_handle);
-}
-static void xdg_toplevel_unmap(struct wl_listener *listener, void *data) {
-  struct fwr_view *view = wl_container_of(listener, view, unmap);
-  struct fwr_instance *instance = view->instance;
-
-  struct message_builder msg = message_builder_new();
-  struct message_builder_segment msg_seg = message_builder_segment(&msg);
-  message_builder_segment_push_string(&msg_seg, "surface_unmap");
-  message_builder_segment_finish(&msg_seg);
-
-  msg_seg = message_builder_segment(&msg);
-  struct message_builder_segment arg_seg = message_builder_segment_push_map(&msg_seg, 1);
-  message_builder_segment_push_string(&arg_seg, "handle");
-  message_builder_segment_push_int64(&arg_seg, view->handle);
-  message_builder_segment_finish(&arg_seg);
-
-  message_builder_segment_finish(&msg_seg);
-  uint8_t *msg_buf;
-  size_t msg_buf_len;
-  message_builder_finish(&msg, &msg_buf, &msg_buf_len);
-
-  FlutterPlatformMessageResponseHandle *response_handle;
-  instance->fl_proc_table.PlatformMessageCreateResponseHandle(instance->engine, cb, NULL, &response_handle);
-
-  FlutterPlatformMessage platform_message = {};
-  platform_message.struct_size = sizeof(FlutterPlatformMessage);
-  platform_message.channel = "wlroots";
-  platform_message.message = msg_buf;
-  platform_message.message_size = msg_buf_len;
-  platform_message.response_handle = response_handle;
-  instance->fl_proc_table.SendPlatformMessage(instance->engine, &platform_message);
-
-  free(msg_buf);
-
-  handle_map_remove(instance->views, view->handle);
-}
-static void xdg_toplevel_destroy(struct wl_listener *listener, void *data) {}
-
-static void server_new_xdg_surface(struct wl_listener *listener, void *data) {
-  struct fwr_instance *instance = wl_container_of(listener, instance, new_xdg_surface);
-  struct wlr_xdg_surface *xdg_surface = data;
-
-  if (xdg_surface->role == WLR_XDG_SURFACE_ROLE_POPUP) {
-    return;
-  }
-
-  struct fwr_view *view = calloc(1, sizeof(struct fwr_view));
-
-  view->instance = instance;
-  view->surface = xdg_surface;
-
-  view->map.notify = xdg_toplevel_map;
-  wl_signal_add(&xdg_surface->events.map, &view->map);
-  view->unmap.notify = xdg_toplevel_unmap;
-  wl_signal_add(&xdg_surface->events.unmap, &view->unmap);
-  view->destroy.notify = xdg_toplevel_destroy;
-  wl_signal_add(&xdg_surface->events.destroy, &view->destroy);
-  //view->commit.notify = tmp_on_commit;
-  //wl_signal_add(&xdg_surface->surface->events.commit, &view->commit);
-
-  uint32_t view_handle = handle_map_add(instance->views, (void*) view);
-  view->handle = view_handle;
-}
 
 static bool engine_cb_renderer_make_current(void *user_data) {
   struct fwr_instance *instance = user_data;
@@ -376,6 +154,10 @@ static void engine_cb_platform_message(
       fwr_handle_surface_pointer_event_message(instance, engine_message->response_handle, &args);
       return;
     }
+    if (strcmp(method_name, "surface_toplevel_set_size") == 0) {
+      fwr_handle_surface_toplevel_set_size(instance, engine_message->response_handle, &args);
+      return;
+    }
 
     wlr_log(WLR_INFO, "Unhandled platform message: channel: %s %s", engine_message->channel, method_name);
     goto error;
@@ -463,11 +245,11 @@ bool fwr_instance_create(struct fwr_instance_opts opts, struct fwr_instance **in
 
   instance->output_layout = wlr_output_layout_create();
 
-  instance->new_output.notify = server_new_output;
+  instance->new_output.notify = fwr_server_new_output;
   wl_signal_add(&instance->backend->events.new_output, &instance->new_output);
 
   instance->xdg_shell = wlr_xdg_shell_create(instance->wl_display);
-  instance->new_xdg_surface.notify = server_new_xdg_surface;
+  instance->new_xdg_surface.notify = fwr_new_xdg_surface;
   wl_signal_add(&instance->xdg_shell->events.new_surface, &instance->new_xdg_surface);
 
   fwr_input_init(instance);

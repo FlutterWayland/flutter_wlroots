@@ -61,6 +61,10 @@ class _CompositorPlatform {
     handlers[method] = handler;
   }
 
+  Future<void> surfaceToplevelSetSize(Surface surface, int width, int height) async {
+    await channel.invokeListMethod("surface_toplevel_set_size", [surface.handle, width, height]);
+  }
+
   Future<void> clearFocus(Surface surface) async {
     await channel.invokeMethod("surface_clear_focus", [surface.handle]);
   }
@@ -89,7 +93,6 @@ class Compositor {
 
   Compositor() {
     platform.addHandler("surface_map", (call) async {
-      print("handle ${call.arguments["handle"]}");
       Surface surface = Surface(
         handle: call.arguments["handle"],
         pid: call.arguments["client_pid"],
@@ -106,14 +109,6 @@ class Compositor {
       Surface surface = surfaces[handle]!;
       surfaces.remove(handle);
       surfaceUnmapped.add(surface);
-    });
-
-    print("sending platform message");
-    platform.channel.invokeMethod("testing").then((value) => {
-      print("testing message response")
-    })
-    .catchError((error) => {
-      print("error")
     });
   }
 

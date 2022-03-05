@@ -88,7 +88,7 @@ class _SurfaceViewState extends State<SurfaceView> {
         child: _MeasureSize(
           onChange: (size) {
             if (size != null) {
-              controller.size = size;
+              controller.setSize(size);
             }
           }, 
           child: PlatformViewSurface(
@@ -110,6 +110,11 @@ class _CompositorPlatformViewController extends PlatformViewController {
   Size size = const Size(100, 100);
 
   _CompositorPlatformViewController({required this.surface});
+
+  void setSize(Size size) {
+    this.size = size;
+    compositor.platform.surfaceToplevelSetSize(surface, size.width.round(), size.height.round());
+  }
 
   @override
   Future<void> clearFocus() => compositor.platform.clearFocus(surface);

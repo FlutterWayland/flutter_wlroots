@@ -15,6 +15,7 @@
 #include "standard_message_codec.h"
 #include "constants.h"
 #include "handle_map.h"
+#include "messages.h"
 
 #define NS_PER_MS 1000000
 
@@ -224,116 +225,39 @@ void fwr_input_init(struct fwr_instance *instance) {
 }
 
 void fwr_handle_surface_pointer_event_message(struct fwr_instance *instance, const FlutterPlatformMessageResponseHandle *handle, struct dart_value *args) {
-  if (args->type != dvList) {
+  struct surface_pointer_event_message message;
+  if (!decode_surface_pointer_event_message(args, &message)) {
     goto error;
   }
-  if (args->list.length != 29) {
-    goto error;
-  }
-
-  // 0: surface.handle,
-  // 1: event.buttons,
-  // 2: event.delta.dx,
-  // 3: event.delta.dy,
-  // 4: event.device,
-  // 5: event.distance,
-  // 6: event.down,
-  // 7: event.embedderId,
-  // 8: event.kind.name,
-  // 9: event.localDelta.dx,
-  // 10: event.localDelta.dy,
-  // 11: event.localPosition.dx,
-  // 12: event.localPosition.dy,
-  // 13: event.obscured,
-  // 14: event.orientation,
-  // 15: event.platformData,
-  // 16: event.pointer,
-  // 17: event.position.dx,
-  // 18: event.position.dy,
-  // 19: event.pressure,
-  // 20: event.radiusMajor,
-  // 21: event.radiusMinor,
-  // 22: event.size,
-  // 23: event.synthesized,
-  // 24: event.tilt,
-  // 25: event.timeStamp.inMicroseconds,
-  // 26: event type
-
-  struct dart_value *handle_val = &args->list.values[0];
-  if (handle_val->type != dvInteger) {
-    goto error;
-  }
-  int64_t view_handle = handle_val->integer;
 
   struct fwr_view *view;
-  if (!handle_map_get(instance->views, view_handle, (void**) &view)) {
+  if (!handle_map_get(instance->views, message.surface_handle, (void**) &view)) {
     // This implies a race condition of surface removal.
     // We return success here.
     goto success;
   }
 
-  struct dart_value *buttons_val = &args->list.values[1];
-  if (buttons_val->type != dvInteger) {
-    goto error;
-  }
-  const int buttons = buttons_val->integer;
-
-  struct dart_value *device_kind_val = &args->list.values[8];
-  if (device_kind_val->type != dvInteger) {
-    goto error;
-  }
-  const int device_kind = device_kind_val->integer;
-
-  if (args->list.values[11].type != dvFloat64) {
-    goto error;
-  }
-  if (args->list.values[12].type != dvFloat64) {
-    goto error;
-  }
-  double local_pos_x = args->list.values[11].f64;
-  double local_pos_y = args->list.values[12].f64;
-
-  if (args->list.values[27].type != dvFloat64) {
-    goto error;
-  }
-  if (args->list.values[28].type != dvFloat64) {
-    goto error;
-  }
-  double widget_size_x = args->list.values[27].f64;
-  double widget_size_y = args->list.values[28].f64;
-
-  struct dart_value *event_type_val = &args->list.values[26];
-  if (event_type_val->type != dvInteger) {
-    goto error;
-  }
-  const int event_type = event_type_val->integer;
-
-  if (args->list.values[25].type != dvInteger) {
-    goto error;
-  }
-  int64_t timestamp = args->list.values[25].integer;
+  //wlr_log(WLR_INFO, "yay pointer event %d %ld", message.event_type, message.buttons);
 
   struct wlr_surface_state *surface_state = &view->surface->surface->current;
 
-  double transformed_local_pos_x = local_pos_x / widget_size_x * surface_state->width;
-  double transformed_local_pos_y = local_pos_y / widget_size_y * surface_state->height;
+  double transformed_local_pos_x = message.local_pos_x / message.widget_size_x * surface_state->width;
+  double transformed_local_pos_y = message.local_pos_y / message.widget_size_y * surface_state->height;
 
-  switch (device_kind) {
+  switch (message.device_kind) {
     case pointerKindMouse: {
-      switch (event_type) {
+      switch (message.event_type) {
         case pointerDownEvent:
-          //wlr_log(WLR_INFO, "pressed %d", buttons);
-          wlr_seat_pointer_notify_button(instance->seat, timestamp / NS_PER_MS, 0x110, WLR_BUTTON_PRESSED);
+          wlr_seat_pointer_notify_button(instance->seat, message.timestamp / NS_PER_MS, 0x110, WLR_BUTTON_PRESSED);
           break;
         case pointerUpEvent:
-          //wlr_log(WLR_INFO, "released %d", buttons);
-          wlr_seat_pointer_notify_button(instance->seat, timestamp / NS_PER_MS, 0x110, WLR_BUTTON_RELEASED);
+          wlr_seat_pointer_notify_button(instance->seat, message.timestamp / NS_PER_MS, 0x110, WLR_BUTTON_RELEASED);
           break;
         case pointerHoverEvent:
         case pointerEnterEvent:
         case pointerMoveEvent: {
           wlr_seat_pointer_notify_enter(instance->seat, view->surface->surface, transformed_local_pos_x, transformed_local_pos_y);
-          wlr_seat_pointer_notify_motion(instance->seat, timestamp / NS_PER_MS, transformed_local_pos_x, transformed_local_pos_y);
+          wlr_seat_pointer_notify_motion(instance->seat, message.timestamp / NS_PER_MS, transformed_local_pos_x, transformed_local_pos_y);
           break;
         }
         case pointerExitEvent: {
