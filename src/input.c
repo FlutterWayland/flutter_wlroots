@@ -4,10 +4,18 @@
 #include <wlr/types/wlr_cursor.h>
 #include <wlr/types/wlr_xcursor_manager.h>
 #include <wlr/types/wlr_pointer.h>
+
+#include <wlr/types/wlr_data_device.h>
+#include <wlr/types/wlr_input_device.h>
+#include <wlr/types/wlr_keyboard.h>
+
 #include <wlr/backend.h>
 #include <wlr/util/log.h>
 #include <wlr/types/wlr_seat.h>
 #include <wlr/types/wlr_xdg_shell.h>
+#include <xkbcommon/xkbcommon.h>
+#include <stdlib.h>
+
 
 #include "input.h"
 #include "shaders.h"
@@ -148,8 +156,164 @@ static void on_server_cursor_touch_frame(struct wl_listener *listener, void *dat
   struct fwr_instance *instance = wl_container_of(listener, instance, cursor_touch_frame);
 }
 
+static void keyboard_handle_modifiers(
+		struct wl_listener *listener, void *data) {
+    
+  /* This event is raised when a modifier key, such as shift or alt, is
+	 * pressed. We simply communicate this to the client. */
+	struct fwr_keyboard *keyboard =
+		wl_container_of(listener, keyboard, modifiers);
+	/*
+	 * A seat can only have one keyboard, but this is a limitation of the
+	 * Wayland protocol - not wlroots. We assign all connected keyboards to the
+	 * same seat. You can swap out the underlying wlr_keyboard like this and
+	 * wlr_seat handles this transparently.
+	 */
+	wlr_seat_set_keyboard(keyboard->instance->seat, keyboard->device);
+	/* Send modifiers to the client. */
+	wlr_seat_keyboard_notify_modifiers(keyboard->instance->seat,
+		&keyboard->device->keyboard->modifiers);
+
+
+}
+
+// TODO: pass to focues view
+static bool handle_keybinding(struct fwr_instance *instance, xkb_keysym_t sym) {
+/*
+	 * Here we handle compositor keybindings. This is when the compositor is
+	 * processing keys, rather than passing them on to the client for its own
+	 * processing.
+	 *
+	 * This function assumes Alt is held down.
+	 */
+	switch (sym) {
+	case XKB_KEY_Escape:
+		wl_display_terminate(instance->wl_display);
+		break;
+	case XKB_KEY_F1:
+
+		/* Cycle to the next view */
+		// if (wl_list_length(&instance->views) < 2) {
+		// 	break;
+		// }
+		// struct fwr_view *next_view = wl_container_of(
+		// 	instance->views.prev, next_view, link);
+		// focus_view(next_view, next_view->xdg_toplevel->base->surface);
+		break;
+	default:
+		return false;
+	}
+	return true;
+
+}
+static void cb(const uint8_t *data, size_t size, void *user_data) {
+  wlr_log(WLR_INFO, "callback");
+}
+
+static void keyboard_handle_key(
+		struct wl_listener *listener, void *data) {
+
+	struct fwr_keyboard *keyboard =	wl_container_of(listener, keyboard, key);
+  struct fwr_instance *instance = keyboard->instance;
+  struct wlr_event_keyboard_key *event = data;
+  struct wlr_seat *seat = instance->seat;
+
+  // translate libinput keycode to xkbcommon
+  uint32_t keycode = event->keycode + 8;
+
+  // get list of keysyms basd on the keymap for this keyboard
+  const xkb_keysym_t *syms;
+  int nsyms = xkb_state_key_get_syms(keyboard->device->keyboard->xkb_state, keycode, &syms);
+
+  bool handled = false;
+
+  uint32_t modifiers = wlr_keyboard_get_modifiers(keyboard->device->keyboard);
+	if ((modifiers & WLR_MODIFIER_ALT) &&
+			event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
+		/* If alt is held down and this button was _pressed_, we attempt to
+		 * process it as a compositor keybinding. */
+
+    // TODO: pass keys to flutter ?
+		for (int i = 0; i < nsyms; i++) {
+			handled = handle_keybinding(instance, syms[i]);
+		}
+	}
+
+	if (!handled) {
+
+
+  struct message_builder msg = message_builder_new();
+  struct message_builder_segment msg_seg = message_builder_segment(&msg);
+  message_builder_segment_push_string(&msg_seg, "flutter/keyevent");
+  message_builder_segment_finish(&msg_seg);
+
+  msg_seg = message_builder_segment(&msg);
+  struct message_builder_segment arg_seg = message_builder_segment_push_map(&msg_seg, 5);
+  message_builder_segment_push_string(&arg_seg, "keymap");
+  // wlr_log(WLR_INFO, "viewhandle %d", view->handle);
+  message_builder_segment_push_string(&arg_seg, "linux");
+  message_builder_segment_push_string(&arg_seg, "keyCode");
+  message_builder_segment_push_int64(&arg_seg, event->keycode);
+  message_builder_segment_push_string(&arg_seg, "type");
+  message_builder_segment_push_string(&arg_seg, "keydown");
+  message_builder_segment_push_string(&arg_seg, "scanCode");
+  message_builder_segment_push_int64(&arg_seg, 78);
+  message_builder_segment_push_string(&arg_seg, "modifiers");
+  message_builder_segment_push_int64(&arg_seg, 0);
+  message_builder_segment_finish(&arg_seg);
+
+  message_builder_segment_finish(&msg_seg);
+  uint8_t *msg_buf;
+  size_t msg_buf_len;
+  message_builder_finish(&msg, &msg_buf, &msg_buf_len);
+
+  FlutterPlatformMessageResponseHandle *response_handle;
+  instance->fl_proc_table.PlatformMessageCreateResponseHandle(instance->engine, cb, NULL, &response_handle);
+
+  FlutterPlatformMessage platform_message = {};
+  platform_message.struct_size = sizeof(FlutterPlatformMessage);
+  platform_message.channel = "wlroots";
+  platform_message.message = msg_buf;
+  platform_message.message_size = msg_buf_len;
+  platform_message.response_handle = response_handle;
+  instance->fl_proc_table.SendPlatformMessage(instance->engine, &platform_message);
+
+		/* Otherwise, we pass it along to the client. */
+		wlr_seat_set_keyboard(seat, keyboard->device);
+		wlr_seat_keyboard_notify_key(seat, event->time_msec,
+			event->keycode, event->state);
+	}
+
+}
+
 static void server_new_keyboard(struct fwr_instance *instance,
 		struct wlr_input_device *device) {
+
+  struct fwr_keyboard *keyboard = calloc(1, sizeof(struct fwr_keyboard));
+  keyboard->instance = instance;
+  keyboard->device = device;
+
+  // Prepare XKB keymap and asing to keyboard, default layout is "us"
+  struct xkb_context *context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+  struct xkb_keymap *keymap = xkb_keymap_new_from_names(context, NULL, XKB_KEYMAP_COMPILE_NO_FLAGS);
+
+  wlr_keyboard_set_keymap(device->keyboard, keymap);
+  xkb_keymap_unref(keymap);
+  xkb_context_unref(context);
+  wlr_keyboard_set_repeat_info(device->keyboard, 25, 600);
+
+  // here we set up listeners for keyboard events
+  keyboard->modifiers.notify = keyboard_handle_modifiers;
+  wl_signal_add(&device->keyboard->events.modifiers, &keyboard->modifiers);
+  keyboard->key.notify = keyboard_handle_key;
+  wl_signal_add(&device->keyboard->events.key, &keyboard->key);
+
+  wlr_seat_set_keyboard(instance->seat, device);
+
+  // add keyboard to list of keyboards
+  wl_list_insert(&instance->keyboards, &keyboard->link);
+
+
 }
 
 static void server_new_pointer(struct fwr_instance *instance,
@@ -182,9 +346,9 @@ static void on_server_new_input(struct wl_listener *listener, void *data) {
 
   // TODO seat caps
   uint32_t caps = WL_SEAT_CAPABILITY_POINTER;
-  //if (!wl_list_empty(&server->keyboards)) {
-  //  caps |= WL_SEAT_CAPABILITY_KEYBOARD;
-  //}
+  if (!wl_list_empty(&instance->keyboards)) {
+   caps |= WL_SEAT_CAPABILITY_KEYBOARD;
+  }
   wlr_seat_set_capabilities(instance->seat, caps);
 }
 
@@ -218,6 +382,8 @@ void fwr_input_init(struct fwr_instance *instance) {
   wl_signal_add(&instance->cursor->events.touch_motion, &instance->cursor_touch_motion);
   instance->cursor_touch_frame.notify = on_server_cursor_touch_frame;
   wl_signal_add(&instance->cursor->events.touch_frame, &instance->cursor_touch_frame);
+
+  wl_list_init(&instance->keyboards);
 
   instance->new_input.notify = on_server_new_input;
 	wl_signal_add(&instance->backend->events.new_input, &instance->new_input);

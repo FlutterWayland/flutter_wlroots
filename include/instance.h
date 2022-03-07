@@ -43,6 +43,7 @@ struct fwr_instance {
   struct fwr_input_state input;
 
   struct wl_listener new_input;
+  struct wl_list keyboards;
 
   struct wlr_seat *seat;
 
@@ -92,4 +93,13 @@ struct fwr_view {
   struct wl_listener unmap;
   struct wl_listener destroy;
   struct wl_listener commit;
+};
+
+struct fwr_keyboard {
+  struct wl_list link;
+  struct fwr_instance *instance;
+  struct wlr_input_device *device;
+
+  struct wl_listener modifiers;
+  struct wl_listener key;
 };

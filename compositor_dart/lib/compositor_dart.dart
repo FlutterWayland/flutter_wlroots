@@ -115,6 +115,14 @@ class Compositor {
     .catchError((error) => {
       print("error")
     });
+
+
+    platform.addHandler("flutter/keyevent", (call) async {
+      print('got event: ${call.arguments["keymap"]}');
+      print('got event: ${call.arguments["keyCode"]}');
+      print('got event: ${call.arguments["scanCode"]}');
+      print('got event: ${call.arguments["modifiers"]}');
+    });
   }
 
 }
