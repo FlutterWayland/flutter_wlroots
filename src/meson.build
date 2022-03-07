@@ -6,4 +6,7 @@ fwr_src += files(
     'task.c',
     'standard_message_codec.c',
     'handle_map.cc',
+    'messages.c',
+    'output.c',
+    'surface.c',
 )
