@@ -49,10 +49,10 @@ static void process_cursor_motion(struct fwr_instance *instance, uint32_t time) 
 
   FlutterPointerEvent pointer_event = {};
   pointer_event.struct_size = sizeof(FlutterPointerEvent);
-  if (instance->input.mouse_down) {
-    pointer_event.phase = kMove;
-  } else {
+  if (instance->input.mouse_button_mask == 0) {
     pointer_event.phase = kHover;
+  } else {
+    pointer_event.phase = kMove;
   }
   pointer_event.x = instance->cursor->x;
   pointer_event.y = instance->cursor->y;
