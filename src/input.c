@@ -157,6 +157,44 @@ static void on_server_cursor_touch_frame(struct wl_listener *listener, void *dat
   struct fwr_instance *instance = wl_container_of(listener, instance, cursor_touch_frame);
 }
 
+static void cb(const uint8_t *data, size_t size, void *user_data) {
+  wlr_log(WLR_INFO, "callback");
+}
+
+static void send_key_to_flutter(struct fwr_instance *instance, struct wlr_event_keyboard_key *event, char** key_event_type) {
+
+  struct message_builder msg = message_builder_new();
+  struct message_builder_segment msg_seg = message_builder_segment(&msg);
+  message_builder_segment_push_string(&msg_seg, "flutter/keyevent");
+  message_builder_segment_finish(&msg_seg);
+
+  msg_seg = message_builder_segment(&msg);
+  struct message_builder_segment arg_seg = message_builder_segment_push_map(&msg_seg, 3);
+  message_builder_segment_push_string(&arg_seg, "keymap");
+  message_builder_segment_push_string(&arg_seg, "wlroots");
+  message_builder_segment_push_string(&arg_seg, "keyCode");
+  message_builder_segment_push_int64(&arg_seg, event->keycode);
+  message_builder_segment_push_string(&arg_seg, "type");
+  message_builder_segment_push_string(&arg_seg, key_event_type);
+  message_builder_segment_finish(&arg_seg);
+
+  message_builder_segment_finish(&msg_seg);
+  uint8_t *msg_buf;
+  size_t msg_buf_len;
+  message_builder_finish(&msg, &msg_buf, &msg_buf_len);
+
+  FlutterPlatformMessageResponseHandle *response_handle;
+  instance->fl_proc_table.PlatformMessageCreateResponseHandle(instance->engine, cb, NULL, &response_handle);
+
+  FlutterPlatformMessage platform_message = {};
+  platform_message.struct_size = sizeof(FlutterPlatformMessage);
+  platform_message.channel = "wlroots";
+  platform_message.message = msg_buf;
+  platform_message.message_size = msg_buf_len;
+  platform_message.response_handle = response_handle;
+  instance->fl_proc_table.SendPlatformMessage(instance->engine, &platform_message);
+}
+
 static void keyboard_handle_modifiers(
 		struct wl_listener *listener, void *data) {
     
@@ -178,39 +216,6 @@ static void keyboard_handle_modifiers(
 
 }
 
-// TODO: pass to focues view
-static bool handle_keybinding(struct fwr_instance *instance, xkb_keysym_t sym) {
-/*
-	 * Here we handle compositor keybindings. This is when the compositor is
-	 * processing keys, rather than passing them on to the client for its own
-	 * processing.
-	 *
-	 * This function assumes Alt is held down.
-	 */
-	switch (sym) {
-	case XKB_KEY_Escape:
-		wl_display_terminate(instance->wl_display);
-		break;
-	case XKB_KEY_F1:
-
-		/* Cycle to the next view */
-		// if (wl_list_length(&instance->views) < 2) {
-		// 	break;
-		// }
-		// struct fwr_view *next_view = wl_container_of(
-		// 	instance->views.prev, next_view, link);
-		// focus_view(next_view, next_view->xdg_toplevel->base->surface);
-		break;
-	default:
-		return false;
-	}
-	return true;
-
-}
-static void cb(const uint8_t *data, size_t size, void *user_data) {
-  wlr_log(WLR_INFO, "callback");
-}
-
 static void keyboard_handle_key(
 		struct wl_listener *listener, void *data) {
 
@@ -228,62 +233,30 @@ static void keyboard_handle_key(
 
   bool handled = false;
 
-  uint32_t modifiers = wlr_keyboard_get_modifiers(keyboard->device->keyboard);
-	if ((modifiers & WLR_MODIFIER_ALT) &&
-			event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
-		/* If alt is held down and this button was _pressed_, we attempt to
-		 * process it as a compositor keybinding. */
+  send_key_to_flutter(instance, event, "keydown");
+  send_key_to_flutter(instance, event, "keyup");
 
-    // TODO: pass keys to flutter ?
-		for (int i = 0; i < nsyms; i++) {
-			handled = handle_keybinding(instance, syms[i]);
-		}
-	}
+  // uint32_t modifiers = wlr_keyboard_get_modifiers(keyboard->device->keyboard);
+	// if ((modifiers & WLR_MODIFIER_ALT) &&
+	// 		event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
+	// 	/* If alt is held down and this button was _pressed_, we attempt to
+	// 	 * process it as a compositor keybinding. */
 
-	if (!handled) {
+  //   // TODO: pass keys to flutter ?
+	// 	for (int i = 0; i < nsyms; i++) {
+	// 		handled = handle_keybinding(instance, syms[i]);
+	// 	}
+	// }
+
+	// if (!handled) {
 
 
-  struct message_builder msg = message_builder_new();
-  struct message_builder_segment msg_seg = message_builder_segment(&msg);
-  message_builder_segment_push_string(&msg_seg, "flutter/keyevent");
-  message_builder_segment_finish(&msg_seg);
 
-  msg_seg = message_builder_segment(&msg);
-  struct message_builder_segment arg_seg = message_builder_segment_push_map(&msg_seg, 5);
-  message_builder_segment_push_string(&arg_seg, "keymap");
-  // wlr_log(WLR_INFO, "viewhandle %d", view->handle);
-  message_builder_segment_push_string(&arg_seg, "linux");
-  message_builder_segment_push_string(&arg_seg, "keyCode");
-  message_builder_segment_push_int64(&arg_seg, event->keycode);
-  message_builder_segment_push_string(&arg_seg, "type");
-  message_builder_segment_push_string(&arg_seg, "keydown");
-  message_builder_segment_push_string(&arg_seg, "scanCode");
-  message_builder_segment_push_int64(&arg_seg, 78);
-  message_builder_segment_push_string(&arg_seg, "modifiers");
-  message_builder_segment_push_int64(&arg_seg, 0);
-  message_builder_segment_finish(&arg_seg);
-
-  message_builder_segment_finish(&msg_seg);
-  uint8_t *msg_buf;
-  size_t msg_buf_len;
-  message_builder_finish(&msg, &msg_buf, &msg_buf_len);
-
-  FlutterPlatformMessageResponseHandle *response_handle;
-  instance->fl_proc_table.PlatformMessageCreateResponseHandle(instance->engine, cb, NULL, &response_handle);
-
-  FlutterPlatformMessage platform_message = {};
-  platform_message.struct_size = sizeof(FlutterPlatformMessage);
-  platform_message.channel = "wlroots";
-  platform_message.message = msg_buf;
-  platform_message.message_size = msg_buf_len;
-  platform_message.response_handle = response_handle;
-  instance->fl_proc_table.SendPlatformMessage(instance->engine, &platform_message);
-
-		/* Otherwise, we pass it along to the client. */
-		wlr_seat_set_keyboard(seat, keyboard->device);
-		wlr_seat_keyboard_notify_key(seat, event->time_msec,
-			event->keycode, event->state);
-	}
+	// 	/* Otherwise, we pass it along to the client. */
+	// 	wlr_seat_set_keyboard(seat, keyboard->device);
+	// 	wlr_seat_keyboard_notify_key(seat, event->time_msec,
+	// 		event->keycode, event->state);
+	// }
 
 }
 

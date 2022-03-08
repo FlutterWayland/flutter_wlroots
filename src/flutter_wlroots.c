@@ -322,8 +322,8 @@ bool fwr_instance_create(struct fwr_instance_opts opts, struct fwr_instance **in
 
   FlutterWindowMetricsEvent window_metrics = {};
   window_metrics.struct_size = sizeof(FlutterWindowMetricsEvent);
-  window_metrics.width = 300;
-  window_metrics.height = 300;
+  window_metrics.width = 1280;
+  window_metrics.height = 720;
   window_metrics.pixel_ratio = 1.0;
   instance->fl_proc_table.SendWindowMetricsEvent(instance->engine, &window_metrics);
 

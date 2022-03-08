@@ -40,7 +40,8 @@ class Surface {
 class _CompositorPlatform {
   final MethodChannel channel = const MethodChannel("wlroots");
 
-  final HashMap<String, Future<dynamic> Function(MethodCall)> handlers = HashMap();
+  final HashMap<String, Future<dynamic> Function(MethodCall)> handlers =
+      HashMap();
 
   _CompositorPlatform() {
     channel.setMethodCallHandler((call) async {
@@ -61,8 +62,10 @@ class _CompositorPlatform {
     handlers[method] = handler;
   }
 
-  Future<void> surfaceToplevelSetSize(Surface surface, int width, int height) async {
-    await channel.invokeListMethod("surface_toplevel_set_size", [surface.handle, width, height]);
+  Future<void> surfaceToplevelSetSize(
+      Surface surface, int width, int height) async {
+    await channel.invokeListMethod(
+        "surface_toplevel_set_size", [surface.handle, width, height]);
   }
 
   Future<void> clearFocus(Surface surface) async {
@@ -112,20 +115,15 @@ class Compositor {
     });
 
     print("sending platform message");
-    platform.channel.invokeMethod("testing").then((value) => {
-      print("testing message response")
-    })
-    .catchError((error) => {
-      print("error")
-    });
-
+    platform.channel
+        .invokeMethod("testing")
+        .then((value) => {print("testing message response")})
+        .catchError((error) => {print("error")});
 
     platform.addHandler("flutter/keyevent", (call) async {
       print('got event: ${call.arguments["keymap"]}');
       print('got event: ${call.arguments["keyCode"]}');
-      print('got event: ${call.arguments["scanCode"]}');
-      print('got event: ${call.arguments["modifiers"]}');
+      print('got event: ${call.arguments["type"]}');
     });
   }
-
 }
