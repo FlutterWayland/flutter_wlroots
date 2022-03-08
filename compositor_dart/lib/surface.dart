@@ -84,13 +84,42 @@ class _SurfaceViewState extends State<SurfaceView> {
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
-      child: Focus(
+      child: Listener(
+        onPointerSignal: (event) async {
+          if (event is! PointerScrollEvent) return;
+
+          final double amount;
+          final int orientation;
+
+          if (event.scrollDelta.dx != 0 && event.scrollDelta.dy == 0) {
+            amount = event.scrollDelta.dx;
+            orientation = 1;
+          } else if (event.scrollDelta.dx == 0 && event.scrollDelta.dy != 0) {
+            amount = event.scrollDelta.dy;
+            orientation = 0;
+          } else {
+            throw Exception("Invalid scroll");
+          }
+
+          List data = [
+            widget.surface.handle,
+            event.timeStamp.inMicroseconds,
+            amount,
+            amount.sign.toInt(),
+            orientation,
+          ];
+
+          await compositor.platform.channel.invokeMethod(
+            "surface_axis_event",
+            data,
+          );
+        },
         child: _MeasureSize(
           onChange: (size) {
             if (size != null) {
               controller.setSize(size);
             }
-          }, 
+          },
           child: PlatformViewSurface(
             controller: controller,
             hitTestBehavior: PlatformViewHitTestBehavior.opaque,
@@ -102,7 +131,6 @@ class _SurfaceViewState extends State<SurfaceView> {
       onExit: onExit,
     );
   }
-
 }
 
 class _CompositorPlatformViewController extends PlatformViewController {
@@ -113,7 +141,8 @@ class _CompositorPlatformViewController extends PlatformViewController {
 
   void setSize(Size size) {
     this.size = size;
-    compositor.platform.surfaceToplevelSetSize(surface, size.width.round(), size.height.round());
+    compositor.platform.surfaceToplevelSetSize(
+        surface, size.width.round(), size.height.round());
   }
 
   @override
@@ -122,6 +151,38 @@ class _CompositorPlatformViewController extends PlatformViewController {
   @override
   Future<void> dispatchPointerEvent(PointerEvent event) async {
     //print("${event.toString()}");
+    // !!! IMPORTANT !!!
+    // This part right here doesn't work as of now, i don't know if it's intended behaviour, flutter issue or our issue.
+    // It's kept as of now only to speculate on possible fixes and not because it's actually needed as of now
+    if (event is PointerScrollEvent) {
+      final double amount;
+      final int orientation;
+
+      if (event.scrollDelta.dx != 0 && event.scrollDelta.dy == 0) {
+        amount = event.scrollDelta.dx;
+        orientation = 0;
+      } else if (event.scrollDelta.dx == 0 && event.scrollDelta.dy != 0) {
+        amount = event.scrollDelta.dy;
+        orientation = 1;
+      } else {
+        throw Exception("Invalid scroll");
+      }
+
+      List data = [
+        surface.handle,
+        event.timeStamp.inMicroseconds,
+        amount,
+        amount.sign,
+        orientation,
+      ];
+
+      await compositor.platform.channel.invokeMethod(
+        "surface_axis_event",
+        data,
+      );
+
+      return;
+    }
 
     int device_kind;
     switch (event.kind) {
@@ -199,5 +260,4 @@ class _CompositorPlatformViewController extends PlatformViewController {
 
   @override
   int get viewId => surface.handle;
-
 }

@@ -61,6 +61,23 @@ bool decode_surface_pointer_event_message(struct dart_value *value, struct surfa
     return true;
 }
 
+bool decode_surface_axis_event_message(struct dart_value *value, struct surface_axis_event_message *out) {
+    if (value->type != dvList) {
+        return false;
+    }
+    if (value->list.length != 5) {
+        return false;
+    }
+
+    DECODE_INTEGER(out->surface_handle, &value->list.values[0]);
+    DECODE_INTEGER(out->timestamp, &value->list.values[1]);
+    DECODE_FLOAT64(out->value, &value->list.values[2]);
+    DECODE_INTEGER(out->value_discrete, &value->list.values[3]);
+    DECODE_INTEGER(out->orientation, &value->list.values[4]);
+
+    return true;
+}
+
 bool decode_surface_toplevel_set_size_message(struct dart_value *value, struct surface_toplevel_set_size_message *out) {
     if (value->type != dvList) {
         return false;

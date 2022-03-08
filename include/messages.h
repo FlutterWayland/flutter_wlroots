@@ -17,6 +17,16 @@ struct surface_pointer_event_message {
 
 bool decode_surface_pointer_event_message(struct dart_value *value, struct surface_pointer_event_message *out);
 
+struct surface_axis_event_message {
+    uint32_t surface_handle;
+    int64_t timestamp;
+    double value;
+    int32_t value_discrete;
+    uint8_t orientation;
+};
+
+bool decode_surface_axis_event_message(struct dart_value *value, struct surface_axis_event_message *out);
+
 struct surface_toplevel_set_size_message {
     uint32_t surface_handle;
     int64_t size_x;

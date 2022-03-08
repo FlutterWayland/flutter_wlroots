@@ -127,6 +127,25 @@ static void on_server_cursor_button(struct wl_listener *listener, void *data) {
 
 static void on_server_cursor_axis(struct wl_listener *listener, void *data) {
   struct fwr_instance *instance = wl_container_of(listener, instance, cursor_axis);
+  struct wlr_event_pointer_axis *event = data;
+
+  wlr_xcursor_manager_set_cursor_image(instance->cursor_mgr, "left_ptr",
+                                       instance->cursor);
+
+  FlutterPointerEvent pointer_event = {};
+  pointer_event.struct_size = sizeof(FlutterPointerEvent);
+  pointer_event.x = instance->cursor->x;
+  pointer_event.y = instance->cursor->y;
+  pointer_event.device = 0;
+  pointer_event.signal_kind = kFlutterPointerSignalKindScroll;
+  pointer_event.scroll_delta_x = event->orientation == WLR_AXIS_ORIENTATION_HORIZONTAL ? event->delta : 0;
+  pointer_event.scroll_delta_y = event->orientation == WLR_AXIS_ORIENTATION_VERTICAL ? event->delta : 0;
+  pointer_event.device_kind = kFlutterPointerDeviceKindMouse;
+  pointer_event.buttons = instance->input.mouse_button_mask;
+  // TODO this is not 100% right as we should return the timestamp from libinput.
+  // On my machine these seem to be using the same source but differnt unit, is this a guarantee?
+  pointer_event.timestamp = instance->fl_proc_table.GetCurrentTime();
+  instance->fl_proc_table.SendPointerEvent(instance->engine, &pointer_event, 1);
 }
 
 static void on_server_cursor_frame(struct wl_listener *listener, void *data) {
@@ -279,6 +298,33 @@ success:
 
 error:
   wlr_log(WLR_ERROR, "Invalid surface pointer event message");
+  // Send failure
+  instance->fl_proc_table.SendPlatformMessageResponse(instance->engine, handle, NULL, 0);
+}
+
+void fwr_handle_surface_axis_event_message(struct fwr_instance *instance, const FlutterPlatformMessageResponseHandle *handle, struct dart_value *args) {
+  struct surface_axis_event_message message;
+  if (!decode_surface_axis_event_message(args, &message)) {
+    goto error;
+  }
+
+  struct fwr_view *view;
+  if (!handle_map_get(instance->views, message.surface_handle, (void**) &view)) {
+    // This implies a race condition of surface removal.
+    // We return success here.
+    goto success;
+  }
+
+  //wlr_log(WLR_INFO, "yay pointer event %d %ld", message.event_type, message.buttons);
+
+  wlr_seat_pointer_notify_axis(instance->seat, message.timestamp / NS_PER_MS, message.orientation, message.value, message.value_discrete, WLR_AXIS_SOURCE_WHEEL);
+
+success:
+  instance->fl_proc_table.SendPlatformMessageResponse(instance->engine, handle, method_call_null_success, sizeof(method_call_null_success));
+  return;
+
+error:
+  wlr_log(WLR_ERROR, "Invalid surface axis event message");
   // Send failure
   instance->fl_proc_table.SendPlatformMessageResponse(instance->engine, handle, NULL, 0);
 }
