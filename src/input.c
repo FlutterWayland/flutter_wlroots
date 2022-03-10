@@ -161,38 +161,32 @@ static void cb(const uint8_t *data, size_t size, void *user_data) {
   wlr_log(WLR_INFO, "callback");
 }
 
-static void send_key_to_flutter(struct fwr_instance *instance, struct wlr_event_keyboard_key *event, char** key_event_type) {
 
-  struct message_builder msg = message_builder_new();
-  struct message_builder_segment msg_seg = message_builder_segment(&msg);
-  message_builder_segment_push_string(&msg_seg, "flutter/keyevent");
-  message_builder_segment_finish(&msg_seg);
+const uint64_t kValueMask = 0x000ffffffff;
+const uint64_t kUnicodePlane = 0x00000000000;
+const uint64_t kGtkPlane = 0x01500000000;
 
-  msg_seg = message_builder_segment(&msg);
-  struct message_builder_segment arg_seg = message_builder_segment_push_map(&msg_seg, 3);
-  message_builder_segment_push_string(&arg_seg, "keymap");
-  message_builder_segment_push_string(&arg_seg, "wlroots");
-  message_builder_segment_push_string(&arg_seg, "keyCode");
-  message_builder_segment_push_int64(&arg_seg, event->keycode);
-  message_builder_segment_push_string(&arg_seg, "type");
-  message_builder_segment_push_string(&arg_seg, key_event_type);
-  message_builder_segment_finish(&arg_seg);
+static uint64_t apply_id_plane(uint64_t logical_id, uint64_t plane) {
+  return (logical_id & kValueMask) | plane;
+}
 
-  message_builder_segment_finish(&msg_seg);
-  uint8_t *msg_buf;
-  size_t msg_buf_len;
-  message_builder_finish(&msg, &msg_buf, &msg_buf_len);
+static void send_key_to_flutter(struct fwr_instance *instance, struct wlr_event_keyboard_key *event, FlutterKeyEventType key_event_type, char* buffer) {
 
   FlutterPlatformMessageResponseHandle *response_handle;
   instance->fl_proc_table.PlatformMessageCreateResponseHandle(instance->engine, cb, NULL, &response_handle);
 
-  FlutterPlatformMessage platform_message = {};
-  platform_message.struct_size = sizeof(FlutterPlatformMessage);
-  platform_message.channel = "wlroots";
-  platform_message.message = msg_buf;
-  platform_message.message_size = msg_buf_len;
-  platform_message.response_handle = response_handle;
-  instance->fl_proc_table.SendPlatformMessage(instance->engine, &platform_message);
+  FlutterKeyEvent key_event = {};
+  
+  // struct is explained here https://engine.chinmaygarde.com/struct_flutter_key_event.html
+  key_event.struct_size = sizeof(FlutterKeyEvent);
+  key_event.type = key_event_type;
+  key_event.physical = 0x00070004;//codepoint;
+  key_event.logical = apply_id_plane(0x041, kUnicodePlane);//65;
+  key_event.character = key_event_type == kFlutterKeyEventTypeDown ? buffer : NULL;
+  key_event.timestamp = instance->fl_proc_table.GetCurrentTime();
+  key_event.synthesized = false;
+  instance->fl_proc_table.SendKeyEvent(instance->engine, &key_event, cb, response_handle);
+
 }
 
 static void keyboard_handle_modifiers(
@@ -233,8 +227,33 @@ static void keyboard_handle_key(
 
   bool handled = false;
 
-  send_key_to_flutter(instance, event, "keydown");
-  send_key_to_flutter(instance, event, "keyup");
+   FlutterKeyEventType flutter_key_event_type;
+
+   switch (event->state)
+   {
+     case WL_KEYBOARD_KEY_STATE_PRESSED:
+      flutter_key_event_type = kFlutterKeyEventTypeDown;
+      break;
+    case WL_KEYBOARD_KEY_STATE_RELEASED:
+      flutter_key_event_type = kFlutterKeyEventTypeUp;
+      break;
+    default:
+      flutter_key_event_type = kFlutterKeyEventTypeUp;
+      break;
+   }
+  
+  char *buffer;
+  int size;
+
+   // First find the needed size; return value is the same as snprintf(3).
+   size = xkb_state_key_get_utf8(keyboard->device->keyboard->xkb_state, keycode, NULL, 0) + 1;
+   if (size > 1) {
+     buffer = malloc(size);
+
+     xkb_state_key_get_utf8(keyboard->device->keyboard->xkb_state, keycode, buffer, size);
+   }  
+
+  send_key_to_flutter(instance, event, flutter_key_event_type, buffer);
 
   // uint32_t modifiers = wlr_keyboard_get_modifiers(keyboard->device->keyboard);
 	// if ((modifiers & WLR_MODIFIER_ALT) &&

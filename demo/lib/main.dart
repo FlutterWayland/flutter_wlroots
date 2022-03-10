@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:compositor_dart/compositor_dart.dart';
 import 'package:compositor_dart/surface.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 void main() {
   Compositor.initLogger();
@@ -58,6 +59,27 @@ class _MyHomePageState extends State<MyHomePage> {
   Compositor compositor = Compositor();
   Surface? surface;
 
+  static const BasicMessageChannel<Object?> keyEvent =
+      BasicMessageChannel<Object?>(
+    'flutter/keyevent',
+    JSONMessageCodec(),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    SystemChannels.keyEvent.setMessageHandler((message) async {
+      stdout.writeln(message);
+      return null;
+    });
+    /* platform.addHandler("flutter/keyevent", (call) async {
+    print('got event: ${call.arguments}');
+  }); */
+    RawKeyboard.instance.addListener((event) {
+      stdout.writeln(event);
+    });
+  }
+
   _MyHomePageState() {
     compositor.surfaceMapped.stream.listen((event) {
       setState(() {
@@ -99,52 +121,61 @@ class _MyHomePageState extends State<MyHomePage> {
     // The Flutter framework has been optimized to make rerunning build methods
     // fast, so that you can just rebuild anything that needs updating rather
     // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Invoke "debug painting" (press "p" in the console, choose the
-          // "Toggle Debug Paint" action from the Flutter Inspector in Android
-          // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-          // to see the wireframe for each widget.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many timesa:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headline4,
-            ),
-            Container(
-              color: Colors.amber,
-              padding: const EdgeInsets.all(8.0),
-              child: SizedBox(width: 500, height: 500, child: surfaceView),
-            ),
-          ],
+    return Focus(
+       onFocusChange: (value) {
+       stdout.writeln(value);
+     },
+     onKeyEvent: (node, event) {
+       stdout.writeln(event);
+       return KeyEventResult.ignored;
+     },
+      child: Scaffold(
+        appBar: AppBar(
+          // Here we take the value from the MyHomePage object that was created by
+          // the App.build method, and use it to set our appbar title.
+          title: Text(widget.title),
         ),
+        body: Center(
+          // Center is a layout widget. It takes a single child and positions it
+          // in the middle of the parent.
+          child: Column(
+            // Column is also a layout widget. It takes a list of children and
+            // arranges them vertically. By default, it sizes itself to fit its
+            // children horizontally, and tries to be as tall as its parent.
+            //
+            // Invoke "debug painting" (press "p" in the console, choose the
+            // "Toggle Debug Paint" action from the Flutter Inspector in Android
+            // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
+            // to see the wireframe for each widget.
+            //
+            // Column has various properties to control how it sizes itself and
+            // how it positions its children. Here we use mainAxisAlignment to
+            // center the children vertically; the main axis here is the vertical
+            // axis because Columns are vertical (the cross axis would be
+            // horizontal).
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              const Text(
+                'You have pushed the button this many timesa:',
+              ),
+              Text(
+                '$_counter',
+                style: Theme.of(context).textTheme.headline4,
+              ),
+              Container(
+                color: Colors.amber,
+                padding: const EdgeInsets.all(8.0),
+                child: SizedBox(width: 500, height: 500, child: surfaceView),
+              ),
+            ],
+          ),
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: _incrementCounter,
+          tooltip: 'Increment',
+          child: const Icon(Icons.add),
+        ), // This trailing comma makes auto-formatting nicer for build methods.
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }
