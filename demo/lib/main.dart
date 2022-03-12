@@ -61,7 +61,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   static const BasicMessageChannel<Object?> keyEvent =
       BasicMessageChannel<Object?>(
-    'flutter/keyevent',
+    'flutter/keydata',
     JSONMessageCodec(),
   );
 

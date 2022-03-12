@@ -176,12 +176,15 @@ static void send_key_to_flutter(struct fwr_instance *instance, struct wlr_event_
   instance->fl_proc_table.PlatformMessageCreateResponseHandle(instance->engine, cb, NULL, &response_handle);
 
   FlutterKeyEvent key_event = {};
+
+  wlr_log(WLR_INFO, "should send key %d", event->keycode);
   
   // struct is explained here https://engine.chinmaygarde.com/struct_flutter_key_event.html
   key_event.struct_size = sizeof(FlutterKeyEvent);
   key_event.type = key_event_type;
-  key_event.physical = 0x00070004;//codepoint;
-  key_event.logical = apply_id_plane(0x041, kUnicodePlane);//65;
+  key_event.physical = 0x00000019;//codepoint; - w
+  // key_event.logical = apply_id_plane(0x041, kUnicodePlane);//65;
+  key_event.logical = 119; 
   key_event.character = key_event_type == kFlutterKeyEventTypeDown ? buffer : NULL;
   key_event.timestamp = instance->fl_proc_table.GetCurrentTime();
   key_event.synthesized = false;
