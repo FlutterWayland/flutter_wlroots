@@ -1,4 +1,3 @@
-import 'dart:developer';
 import 'dart:io';
 
 import 'package:compositor_dart/compositor_dart.dart';
@@ -59,27 +58,6 @@ class _MyHomePageState extends State<MyHomePage> {
   Compositor compositor = Compositor();
   Surface? surface;
 
-  static const BasicMessageChannel<Object?> keyEvent =
-      BasicMessageChannel<Object?>(
-    'flutter/keydata',
-    JSONMessageCodec(),
-  );
-
-  @override
-  void initState() {
-    super.initState();
-    SystemChannels.keyEvent.setMessageHandler((message) async {
-      stdout.writeln(message);
-      return null;
-    });
-    /* platform.addHandler("flutter/keyevent", (call) async {
-    print('got event: ${call.arguments}');
-  }); */
-    RawKeyboard.instance.addListener((event) {
-      stdout.writeln(event);
-    });
-  }
-
   _MyHomePageState() {
     compositor.surfaceMapped.stream.listen((event) {
       setState(() {
@@ -122,13 +100,17 @@ class _MyHomePageState extends State<MyHomePage> {
     // fast, so that you can just rebuild anything that needs updating rather
     // than having to individually change instances of widgets.
     return Focus(
-       onFocusChange: (value) {
-       stdout.writeln(value);
-     },
-     onKeyEvent: (node, event) {
-       stdout.writeln(event);
-       return KeyEventResult.ignored;
-     },
+      onKeyEvent: (node, KeyEvent event) {
+        stdout.writeln(event);
+        compositor.sendKey(
+            event.logicalKey.keyId,
+            event.physicalKey.usbHidUsage,
+            event.timeStamp.inMilliseconds,
+            event.character,
+            event is KeyDownEvent ? KeyState.pressed : KeyState.released);
+        return KeyEventResult.handled;
+      },
+      autofocus: true,
       child: Scaffold(
         appBar: AppBar(
           // Here we take the value from the MyHomePage object that was created by

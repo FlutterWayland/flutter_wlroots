@@ -27,6 +27,7 @@ struct fwr_instance {
 
   // Map of `uint32_t handle` => `struct fwr_view view`
   struct handle_map *views;
+  uint32_t current_focused_view;
 
   struct wlr_cursor *cursor;
   struct wlr_xcursor_manager *cursor_mgr;

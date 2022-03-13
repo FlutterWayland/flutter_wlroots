@@ -16,6 +16,8 @@ class Calculator {
   int addOne(int value) => value + 1;
 }
 
+enum KeyState { released, pressed }
+
 class Surface {
   // This is actually used as a pointer on the compositor side.
   // It should always be returned exactly as is to the compositiors,
@@ -71,6 +73,17 @@ class _CompositorPlatform {
   Future<void> clearFocus(Surface surface) async {
     await channel.invokeMethod("surface_clear_focus", [surface.handle]);
   }
+
+  Future<void> sendKey(
+    int logicalKeyId,
+    int physicalKeyId,
+    int timestamp,
+    String? character,
+    KeyState keyState,
+  ) async {
+    await channel.invokeMethod("key_press",
+        [logicalKeyId, physicalKeyId, timestamp, character, keyState.index]);
+  }
 }
 
 final Compositor compositor = Compositor();
@@ -93,6 +106,11 @@ class Compositor {
   // Emits an event when a surface has been added and is ready to be presented on the screen.
   StreamController<Surface> surfaceMapped = StreamController.broadcast();
   StreamController<Surface> surfaceUnmapped = StreamController.broadcast();
+
+  Future<void> sendKey(int logicalKeyId, int physicalKeyId, int timestamp,
+          String? character, KeyState keyState) =>
+      platform.sendKey(
+          logicalKeyId, physicalKeyId, timestamp, character, keyState);
 
   Compositor() {
     platform.addHandler("surface_map", (call) async {

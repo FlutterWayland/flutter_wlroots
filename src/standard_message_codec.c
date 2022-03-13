@@ -471,7 +471,7 @@ bool message_read(const uint8_t *buffer, size_t length, size_t *offset, struct d
         return true;
     }
 
-    wlr_log(WLR_ERROR, "No value tag matched: %d", type);
+    // wlr_log(WLR_ERROR, "No value tag matched: %d", type);
     return false;
 }
 
