@@ -410,10 +410,7 @@ const std::map<uint64_t, uint64_t> gtk_keyval_to_logical_key_map = {
     {0x1008ffa7, 0x00200000000},  // Suspend
 };
 
-static const struct {
-  unsigned short keysym;
-  unsigned short ucs;
-} gdk_keysym_to_unicode_tab[] = {
+const std::map<uint64_t, uint64_t> gdk_keysym_to_unicode_tab_map = {
   { 0x01a1, 0x0104 }, /*                     Aogonek Ą LATIN CAPITAL LETTER A WITH OGONEK */
   { 0x01a2, 0x02d8 }, /*                       breve ˘ BREVE */
   { 0x01a3, 0x0141 }, /*                     Lstroke Ł LATIN CAPITAL LETTER L WITH STROKE */
@@ -1242,6 +1239,7 @@ static const struct {
 };
 
 
+
 const uint64_t kMicrosecondsPerMillisecond = 1000;
 const uint64_t kValueMask = 0x000ffffffff;
 const uint64_t kUnicodePlane = 0x00000000000;
@@ -1302,10 +1300,6 @@ extern "C" uint32_t event_to_unicode(struct wlr_event_keyboard_key *event, struc
   uint32_t keycode = event->keycode + 8;
   xkb_keysym_t keyval = xkb_state_key_get_one_sym(state, keycode);
 
-  int min = 0;
-  int max = G_N_ELEMENTS (gdk_keysym_to_unicode_tab) - 1;
-  int mid;
-
   /* First check for Latin-1 characters (1:1 mapping) */
   if ((keyval >= 0x0020 && keyval <= 0x007e) ||
       (keyval >= 0x00a0 && keyval <= 0x00ff))
@@ -1316,17 +1310,9 @@ extern "C" uint32_t event_to_unicode(struct wlr_event_keyboard_key *event, struc
   if ((keyval & 0xff000000) == 0x01000000)
     return keyval & 0x00ffffff;
 
-  /* binary search in table */
-  while (max >= min) {
-    mid = (min + max) / 2;
-    if (gdk_keysym_to_unicode_tab[mid].keysym < keyval)
-      min = mid + 1;
-    else if (gdk_keysym_to_unicode_tab[mid].keysym > keyval)
-      max = mid - 1;
-    else {
-      /* found it */
-      return gdk_keysym_to_unicode_tab[mid].ucs;
-    }
+  if(gdk_keysym_to_unicode_tab_map.find(keyval) != gdk_keysym_to_unicode_tab_map.end() ){
+    auto val = gdk_keysym_to_unicode_tab_map.find(keyval);
+    return val->second;
   }
   
   /* No matching Unicode value found */
