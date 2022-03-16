@@ -85,12 +85,37 @@ class _SurfaceViewState extends State<SurfaceView> {
   Widget build(BuildContext context) {
     return MouseRegion(
       child: Focus(
+        onKeyEvent: (node, event) {
+          print(event.character);
+          final KeyStatus status;
+
+          if (event is KeyDownEvent) {
+            status = KeyStatus.pressed;
+          } else {
+            status = KeyStatus.released;
+          }
+
+          int? keycode = physicalToXkbMap[event.physicalKey.usbHidUsage];
+
+          if (keycode != null) {
+            compositor.platform.surfaceSendKey(
+              widget.surface,
+              keycode,
+              status,
+              event.timeStamp,
+            );
+
+            return KeyEventResult.handled;
+          }
+
+          return KeyEventResult.ignored;
+        },
         child: _MeasureSize(
           onChange: (size) {
             if (size != null) {
               controller.setSize(size);
             }
-          }, 
+          },
           child: PlatformViewSurface(
             controller: controller,
             hitTestBehavior: PlatformViewHitTestBehavior.opaque,
@@ -102,7 +127,6 @@ class _SurfaceViewState extends State<SurfaceView> {
       onExit: onExit,
     );
   }
-
 }
 
 class _CompositorPlatformViewController extends PlatformViewController {
@@ -113,7 +137,8 @@ class _CompositorPlatformViewController extends PlatformViewController {
 
   void setSize(Size size) {
     this.size = size;
-    compositor.platform.surfaceToplevelSetSize(surface, size.width.round(), size.height.round());
+    compositor.platform.surfaceToplevelSetSize(
+        surface, size.width.round(), size.height.round());
   }
 
   @override
@@ -199,5 +224,4 @@ class _CompositorPlatformViewController extends PlatformViewController {
 
   @override
   int get viewId => surface.handle;
-
 }

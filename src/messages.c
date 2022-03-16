@@ -62,6 +62,22 @@ bool decode_surface_pointer_event_message(struct dart_value *value, struct surfa
     return true;
 }
 
+bool decode_surface_keyboard_key_message(struct dart_value *value, struct surface_keyboard_key_message *out) {
+        if (value->type != dvList) {
+        return false;
+    }
+    if (value->list.length != 4) {
+        return false;
+    }
+
+    DECODE_INTEGER(out->surface_handle, &value->list.values[0]);
+    DECODE_INTEGER(out->keycode, &value->list.values[1]);
+    DECODE_INTEGER(out->event_type, &value->list.values[2]);
+    DECODE_INTEGER(out->timestamp, &value->list.values[3]);
+
+    return true;
+}
+
 bool decode_surface_toplevel_set_size_message(struct dart_value *value, struct surface_toplevel_set_size_message *out) {
     if (value->type != dvList) {
         return false;
@@ -73,29 +89,6 @@ bool decode_surface_toplevel_set_size_message(struct dart_value *value, struct s
     DECODE_INTEGER(out->surface_handle, &value->list.values[0]);
     DECODE_INTEGER(out->size_x, &value->list.values[1]);
     DECODE_INTEGER(out->size_y, &value->list.values[2]);
-
-    return true;
-}
-
-bool decode_key_event_message(struct dart_value *value, struct key_event_message *out) {
-
-    if (value->type != dvList) {
-        return false;
-    }
-    if (value->list.length != 5) {
-        return false;
-    }
-
-    // 0: logical key id,
-    // 1: physical key id,
-    // 2: timestamp,
-    // 3: character
-
-    DECODE_INTEGER(out->logical_key_id, &value->list.values[0]);
-    DECODE_INTEGER(out->physical_key_id, &value->list.values[1]);
-    DECODE_INTEGER(out->timestamp, &value->list.values[2]);
-    // DECODE_STRING(out->character, &value->list.values[3]);
-    DECODE_INTEGER(out->key_state, &value->list.values[4]);
 
     return true;
 }

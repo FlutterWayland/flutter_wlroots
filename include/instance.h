@@ -6,6 +6,7 @@
 #include <stdatomic.h>
 
 #include <GLES2/gl2.h>
+#include <xkbcommon/xkbcommon.h>
 #include <wayland-server-core.h>
 
 #include "shaders.h"
@@ -100,7 +101,9 @@ struct fwr_keyboard {
   struct wl_list link;
   struct fwr_instance *instance;
   struct wlr_input_device *device;
+  struct xkb_compose_state *compose_state;
 
   struct wl_listener modifiers;
   struct wl_listener key;
+  struct wl_listener destroy;
 };

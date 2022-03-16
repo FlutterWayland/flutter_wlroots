@@ -102,12 +102,16 @@ class _MyHomePageState extends State<MyHomePage> {
     return Focus(
       onKeyEvent: (node, KeyEvent event) {
         stdout.writeln(event);
-        compositor.sendKey(
-            event.logicalKey.keyId,
-            event.physicalKey.usbHidUsage,
-            event.timeStamp.inMilliseconds,
-            event.character,
-            event is KeyDownEvent ? KeyState.pressed : KeyState.released);
+
+        int? keycode = compositor.keyToXkb(event.physicalKey.usbHidUsage);
+
+        if (keycode != null && surface != null) {
+          compositor.platform.surfaceSendKey(
+              surface!,
+              keycode,
+              event is KeyDownEvent ? KeyStatus.pressed : KeyStatus.released,
+              event.timeStamp);
+        }
         return KeyEventResult.handled;
       },
       autofocus: true,

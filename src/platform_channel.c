@@ -902,7 +902,7 @@ int platch_decode(uint8_t *buffer, size_t size, enum platch_codec codec, struct 
 				object_out->error_msg = root_jsvalue.array[1].string_value;
 				object_out->json_error_details = root_jsvalue.array[2];
 				return platch_free_json_value(&root_jsvalue, true);
-			} else return EBADMSG;https://raw.githubusercontent.com/ardera/flutter-pi/master/include/platformchannel.h
+			} else return EBADMSG;
 
 			break;
 		case kStandardMessageCodec:
@@ -1013,7 +1013,12 @@ int platch_encode(struct platch_obj *object, uint8_t **buffer_out, size_t *size_
 					.type = kStdString,
 					.string_value = object->error_msg
 				};
-				https://raw.githubusercontent.com/ardera/flutter-pi/master/include/platformchannel.h_error_details), &size);
+				
+				ok = platch_calc_value_size_std(&stderrcode, &size);
+				if (ok != 0) return ok;
+				ok = platch_calc_value_size_std(&stderrmessage, &size);
+				if (ok != 0) return ok;
+				ok = platch_calc_value_size_std(&(object->std_error_details), &size);
 				if (ok != 0) return ok;
 			}
 			break;

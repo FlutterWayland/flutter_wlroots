@@ -2,21 +2,14 @@ library compositor_dart;
 
 import 'dart:async';
 import 'dart:collection';
-import 'dart:developer';
 import 'dart:io';
 
-import 'package:compositor_dart/surface.dart';
+import 'package:compositor_dart/constants.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:logging/logging.dart';
 
-/// A Calculator.
-class Calculator {
-  /// Returns [value] plus 1.
-  int addOne(int value) => value + 1;
-}
-
-enum KeyState { released, pressed }
+enum KeyStatus { released, pressed }
 
 class Surface {
   // This is actually used as a pointer on the compositor side.
@@ -74,15 +67,17 @@ class _CompositorPlatform {
     await channel.invokeMethod("surface_clear_focus", [surface.handle]);
   }
 
-  Future<void> sendKey(
-    int logicalKeyId,
-    int physicalKeyId,
-    int timestamp,
-    String? character,
-    KeyState keyState,
-  ) async {
-    await channel.invokeMethod("key_press",
-        [logicalKeyId, physicalKeyId, timestamp, character, keyState.index]);
+  Future<void> surfaceSendKey(Surface surface, int keycode, KeyStatus status,
+      Duration timestamp) async {
+    await channel.invokeListMethod(
+      "surface_keyboard_key",
+      [
+        surface.handle,
+        keycode,
+        status.index,
+        timestamp.inMicroseconds,
+      ],
+    );
   }
 }
 
@@ -107,10 +102,7 @@ class Compositor {
   StreamController<Surface> surfaceMapped = StreamController.broadcast();
   StreamController<Surface> surfaceUnmapped = StreamController.broadcast();
 
-  Future<void> sendKey(int logicalKeyId, int physicalKeyId, int timestamp,
-          String? character, KeyState keyState) =>
-      platform.sendKey(
-          logicalKeyId, physicalKeyId, timestamp, character, keyState);
+  int? keyToXkb(int physicalKey) => physicalToXkbMap[physicalKey];
 
   Compositor() {
     platform.addHandler("surface_map", (call) async {
