@@ -124,16 +124,6 @@ class Compositor {
       surfaceUnmapped.add(surface);
     });
 
-    print("sending platform message");
-    platform.channel
-        .invokeMethod("testing")
-        .then((value) => {print("testing message response")})
-        .catchError((error) => {print("error")});
-
-    platform.addHandler("flutter/keyevent", (call) async {
-      print('got event: ${call.arguments["keymap"]}');
-      print('got event: ${call.arguments["keyCode"]}');
-      print('got event: ${call.arguments["type"]}');
-    });
+    platform.addHandler("flutter/keyevent", (call) async {});
   }
 }

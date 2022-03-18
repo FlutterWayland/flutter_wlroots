@@ -101,8 +101,6 @@ class _MyHomePageState extends State<MyHomePage> {
     // than having to individually change instances of widgets.
     return Focus(
       onKeyEvent: (node, KeyEvent event) {
-        stdout.writeln(event);
-
         int? keycode = compositor.keyToXkb(event.physicalKey.usbHidUsage);
 
         if (keycode != null && surface != null) {
