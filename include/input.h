@@ -11,6 +11,15 @@ struct fwr_input_state {
     uint32_t mouse_button_mask;
 };
 
+struct fwr_input_touch_point_state {
+    double x;
+    double y;
+};
+
+struct fwr_input_device_state {
+    struct fwr_input_touch_point_state touch_points[10];
+};
+
 void fwr_input_init(struct fwr_instance *instance);
 
 void fwr_handle_surface_pointer_event_message(struct fwr_instance *instance, const FlutterPlatformMessageResponseHandle *handle, struct dart_value *args);

@@ -58,16 +58,14 @@ static void output_mode(struct wl_listener *listener, void *data) {
 
   wlr_log(WLR_INFO, "Set output mode");
 
-  wlr_egl_make_current(output->instance->egl);
-  //fwr_renderer_ensure_fbo(output->instance, wlr_output->width, wlr_output->height);
-  
-  FlutterWindowMetricsEvent window_metrics = {};
-  window_metrics.struct_size = sizeof(FlutterWindowMetricsEvent);
-  window_metrics.width = wlr_output->width;
-  window_metrics.height = wlr_output->height;
-  window_metrics.pixel_ratio = 1.0;
-  FlutterEngineSendWindowMetricsEvent(output->instance->engine, &window_metrics);
-
+  if (output->instance->engine != NULL) {
+    FlutterWindowMetricsEvent window_metrics = {};
+    window_metrics.struct_size = sizeof(FlutterWindowMetricsEvent);
+    window_metrics.width = wlr_output->width;
+    window_metrics.height = wlr_output->height;
+    window_metrics.pixel_ratio = 1.0;
+    FlutterEngineSendWindowMetricsEvent(output->instance->engine, &window_metrics);
+  }
 }
 
 void fwr_server_new_output(struct wl_listener *listener, void *data) {
@@ -90,8 +88,6 @@ void fwr_server_new_output(struct wl_listener *listener, void *data) {
 	output->frame.notify = output_frame;
 	wl_signal_add(&wlr_output->events.frame, &output->frame);
 
-  // TODO handle mode signal, resize fbos
-
   output->mode.notify = output_mode;
   wl_signal_add(&wlr_output->events.mode, &output->mode);
   
@@ -107,14 +103,14 @@ void fwr_server_new_output(struct wl_listener *listener, void *data) {
 
     wlr_log(WLR_INFO, "Setting mode when creating new output!");
 
-    //fwr_renderer_ensure_fbo(instance, mode->width, mode->height);
-   
-    FlutterWindowMetricsEvent window_metrics = {};
-    window_metrics.struct_size = sizeof(FlutterWindowMetricsEvent);
-    window_metrics.width = mode->width;
-    window_metrics.height = mode->height;
-    window_metrics.pixel_ratio = 1.0;
-    FlutterEngineSendWindowMetricsEvent(instance->engine, &window_metrics);
+    if (output->instance->engine != NULL) {
+      FlutterWindowMetricsEvent window_metrics = {};
+      window_metrics.struct_size = sizeof(FlutterWindowMetricsEvent);
+      window_metrics.width = mode->width;
+      window_metrics.height = mode->height;
+      window_metrics.pixel_ratio = 1.0;
+      FlutterEngineSendWindowMetricsEvent(instance->engine, &window_metrics);
+    }
   }
 
   wlr_output_layout_add_auto(instance->output_layout, wlr_output);

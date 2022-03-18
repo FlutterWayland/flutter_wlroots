@@ -308,6 +308,7 @@ bool fwr_instance_create(struct fwr_instance_opts opts, struct fwr_instance **in
     return false;
   }
 
+  wlr_log(WLR_INFO, "Pre engine run");
   FlutterEngineResult fl_result = instance->fl_proc_table.Run(
     FLUTTER_ENGINE_VERSION,
     &renderer_config,
@@ -320,12 +321,14 @@ bool fwr_instance_create(struct fwr_instance_opts opts, struct fwr_instance **in
     wlr_log(WLR_ERROR, "Flutter Engine Run failed!");
   }
 
-  FlutterWindowMetricsEvent window_metrics = {};
-  window_metrics.struct_size = sizeof(FlutterWindowMetricsEvent);
-  window_metrics.width = 300;
-  window_metrics.height = 300;
-  window_metrics.pixel_ratio = 1.0;
-  instance->fl_proc_table.SendWindowMetricsEvent(instance->engine, &window_metrics);
+  if (instance->output != NULL) {
+    FlutterWindowMetricsEvent window_metrics = {};
+    window_metrics.struct_size = sizeof(FlutterWindowMetricsEvent);
+    window_metrics.width = instance->output->wlr_output->width;
+    window_metrics.height = instance->output->wlr_output->height;
+    window_metrics.pixel_ratio = 1.0;
+    instance->fl_proc_table.SendWindowMetricsEvent(instance->engine, &window_metrics);
+  }
 
   FlutterPointerEvent pointer_event = {};
   pointer_event.struct_size = sizeof(FlutterPointerEvent);

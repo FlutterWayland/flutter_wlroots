@@ -1,9 +1,11 @@
 #include "flutter_embedder.h"
+#include <stdlib.h>
 
 #define WLR_USE_UNSTABLE
 #include <wlr/types/wlr_cursor.h>
 #include <wlr/types/wlr_xcursor_manager.h>
 #include <wlr/types/wlr_pointer.h>
+#include <wlr/types/wlr_touch.h>
 #include <wlr/backend.h>
 #include <wlr/util/log.h>
 #include <wlr/types/wlr_seat.h>
@@ -93,7 +95,7 @@ static void on_server_cursor_button(struct wl_listener *listener, void *data) {
 
   uint32_t fl_button = uapi_mouse_button_to_flutter(event->button);
   if (fl_button != 0) {
-    uint32_t mask = 1 >> (fl_button - 1);
+    uint32_t mask = 1 << (fl_button - 1);
     if (event->state == WLR_BUTTON_PRESSED) {
       instance->input.mouse_button_mask |= mask;
     } else if (event->state == WLR_BUTTON_RELEASED) {
@@ -135,14 +137,104 @@ static void on_server_cursor_frame(struct wl_listener *listener, void *data) {
 
 static void on_server_cursor_touch_down(struct wl_listener *listener, void *data) {
   struct fwr_instance *instance = wl_container_of(listener, instance, cursor_touch_down);
+  struct wlr_event_touch_down *event = data;
+  struct fwr_input_device_state *state = event->device->data;
+
+  if (event->touch_id >= 10) return;
+  state->touch_points[event->touch_id].x = event->x;
+  state->touch_points[event->touch_id].y = event->y;
+
+  double screen_width = 1.0;
+  double screen_height = 1.0;
+  if (instance->output != NULL) {
+    screen_width = instance->output->wlr_output->width;
+    screen_height = instance->output->wlr_output->height;
+  }
+
+  wlr_log(WLR_INFO, "touch down %f %f", event->x, event->y);
+
+  FlutterPointerEvent pointer_event = {};
+  pointer_event.struct_size = sizeof(FlutterPointerEvent);
+  pointer_event.device_kind = kFlutterPointerDeviceKindTouch;
+  pointer_event.signal_kind = kFlutterPointerSignalKindNone;
+  pointer_event.device = event->touch_id;
+  pointer_event.phase = kAdd;
+  pointer_event.x = event->x * screen_width;
+  pointer_event.y = event->y * screen_height;
+  pointer_event.scroll_delta_x = 0;
+  pointer_event.scroll_delta_y = 0;
+  // TODO this is not 100% right as we should return the timestamp from libinput.
+  // On my machine these seem to be using the same source but differnt unit, is this a guarantee?
+  pointer_event.timestamp = instance->fl_proc_table.GetCurrentTime();
+  instance->fl_proc_table.SendPointerEvent(instance->engine, &pointer_event, 1);
+
+  pointer_event.phase = kDown;
+  instance->fl_proc_table.SendPointerEvent(instance->engine, &pointer_event, 1);
 }
 
 static void on_server_cursor_touch_up(struct wl_listener *listener, void *data) {
   struct fwr_instance *instance = wl_container_of(listener, instance, cursor_touch_up);
+  struct wlr_event_touch_up *event = data;
+  struct fwr_input_device_state *state = event->device->data;
+
+  if (event->touch_id >= 10) return;
+
+  double screen_width = 1.0;
+  double screen_height = 1.0;
+  if (instance->output != NULL) {
+    screen_width = instance->output->wlr_output->width;
+    screen_height = instance->output->wlr_output->height;
+  }
+
+  FlutterPointerEvent pointer_event = {};
+  pointer_event.struct_size = sizeof(FlutterPointerEvent);
+  pointer_event.device_kind = kFlutterPointerDeviceKindTouch;
+  pointer_event.signal_kind = kFlutterPointerSignalKindNone;
+  pointer_event.device = event->touch_id;
+  pointer_event.phase = kUp;
+  pointer_event.x = state->touch_points[event->touch_id].x * screen_width;
+  pointer_event.y = state->touch_points[event->touch_id].y * screen_height;
+  pointer_event.scroll_delta_x = 0;
+  pointer_event.scroll_delta_y = 0;
+  // TODO this is not 100% right as we should return the timestamp from libinput.
+  // On my machine these seem to be using the same source but differnt unit, is this a guarantee?
+  pointer_event.timestamp = instance->fl_proc_table.GetCurrentTime();
+  instance->fl_proc_table.SendPointerEvent(instance->engine, &pointer_event, 1);
+
+  pointer_event.phase = kRemove;
+  instance->fl_proc_table.SendPointerEvent(instance->engine, &pointer_event, 1);
 }
 
 static void on_server_cursor_touch_motion(struct wl_listener *listener, void *data) {
   struct fwr_instance *instance = wl_container_of(listener, instance, cursor_touch_motion);
+  struct wlr_event_touch_motion *event = data;
+  struct fwr_input_device_state *state = event->device->data;
+
+  if (event->touch_id >= 10) return;
+  state->touch_points[event->touch_id].x = event->x;
+  state->touch_points[event->touch_id].y = event->y;
+
+  double screen_width = 1.0;
+  double screen_height = 1.0;
+  if (instance->output != NULL) {
+    screen_width = instance->output->wlr_output->width;
+    screen_height = instance->output->wlr_output->height;
+  }
+
+  FlutterPointerEvent pointer_event = {};
+  pointer_event.struct_size = sizeof(FlutterPointerEvent);
+  pointer_event.device_kind = kFlutterPointerDeviceKindTouch;
+  pointer_event.signal_kind = kFlutterPointerSignalKindNone;
+  pointer_event.device = event->touch_id;
+  pointer_event.phase = kMove;
+  pointer_event.x = event->x * screen_width;
+  pointer_event.y = event->y * screen_height;
+  pointer_event.scroll_delta_x = 0;
+  pointer_event.scroll_delta_y = 0;
+  // TODO this is not 100% right as we should return the timestamp from libinput.
+  // On my machine these seem to be using the same source but differnt unit, is this a guarantee?
+  pointer_event.timestamp = instance->fl_proc_table.GetCurrentTime();
+  instance->fl_proc_table.SendPointerEvent(instance->engine, &pointer_event, 1);
 }
 
 static void on_server_cursor_touch_frame(struct wl_listener *listener, void *data) {
@@ -160,12 +252,15 @@ static void server_new_pointer(struct fwr_instance *instance,
 
 static void server_new_touch(struct fwr_instance *instance,
 		struct wlr_input_device *device) {
-
+  wlr_cursor_attach_input_device(instance->cursor, device);
 }
 
 static void on_server_new_input(struct wl_listener *listener, void *data) {
   struct fwr_instance *instance = wl_container_of(listener, instance, new_input);
   struct wlr_input_device *device = data;
+
+  struct fwr_input_device_state *state = calloc(1, sizeof(struct fwr_input_device_state));
+  device->data = state;
 
   switch (device->type) {
 	case WLR_INPUT_DEVICE_KEYBOARD:
