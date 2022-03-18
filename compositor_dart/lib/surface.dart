@@ -86,7 +86,6 @@ class _SurfaceViewState extends State<SurfaceView> {
     return MouseRegion(
       child: Focus(
         onKeyEvent: (node, event) {
-          print(event.character);
           final KeyStatus status;
 
           if (event is KeyDownEvent) {
