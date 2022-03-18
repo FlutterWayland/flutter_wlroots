@@ -1,6 +1,8 @@
+#include <stdatomic.h>
 #include <stdint.h>
 #include <stdlib.h>
 
+#include <wayland-server-core.h>
 #include <wayland-util.h>
 #include <instance.h>
 
@@ -68,6 +70,36 @@ static void output_mode(struct wl_listener *listener, void *data) {
   }
 }
 
+static void output_present(struct wl_listener *listener, void *data) {
+  struct fwr_output *output = wl_container_of(listener, output, present);
+  struct fwr_instance *instance = output->instance;
+  struct wlr_output_event_present *event = data;
+
+  intptr_t baton = atomic_exchange(&instance->vsync_baton, 0);
+  if (baton != 0) {
+    uint64_t current_time = instance->fl_proc_table.GetCurrentTime();
+    
+    uint64_t frame_target_ns = event->refresh;
+    if (frame_target_ns == 0) {
+      // TODO use wlr_output->refresh?
+      //int32_t refresh = output->wlr_output->refresh;
+      //if (refresh == 0) {
+      //  // Default to 60fps, idk what else to do.
+      //  frame_target_time = 16600000;
+      //} else {
+      //}
+      frame_target_ns = 16600000;
+    }
+
+    instance->fl_proc_table.OnVsync(instance->engine, baton, current_time, current_time + frame_target_ns);
+  }
+}
+
+void fwr_engine_vsync_callback(void *data, intptr_t baton) {
+  struct fwr_instance *instance = data;
+  atomic_store(&instance->vsync_baton, baton);
+}
+
 void fwr_server_new_output(struct wl_listener *listener, void *data) {
   struct fwr_instance *instance = wl_container_of(listener, instance, new_output);
   struct wlr_output *wlr_output = data;
@@ -84,12 +116,14 @@ void fwr_server_new_output(struct wl_listener *listener, void *data) {
 	  calloc(1, sizeof(struct fwr_output));
 	output->wlr_output = wlr_output;
 	output->instance = instance;
+
 	///* Sets up a listener for the frame notify event. */
 	output->frame.notify = output_frame;
 	wl_signal_add(&wlr_output->events.frame, &output->frame);
-
   output->mode.notify = output_mode;
   wl_signal_add(&wlr_output->events.mode, &output->mode);
+  output->present.notify = output_present;
+  wl_signal_add(&wlr_output->events.present, &output->present);
   
   instance->output = output;
 

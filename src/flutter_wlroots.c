@@ -159,6 +159,13 @@ static void engine_cb_platform_message(
       return;
     }
 
+    if (strcmp(method_name, "is_compositor") == 0) {
+      // Just send a success response.
+      instance->fl_proc_table.SendPlatformMessageResponse(
+          instance->engine, engine_message->response_handle,
+          method_call_null_success, sizeof(method_call_null_success));
+    }
+
     wlr_log(WLR_INFO, "Unhandled platform message: channel: %s %s", engine_message->channel, method_name);
     goto error;
   }
@@ -301,7 +308,7 @@ bool fwr_instance_create(struct fwr_instance_opts opts, struct fwr_instance **in
   #ifdef FLUTTER_COMPOSITOR
   project_args.compositor = &instance->fl_compositor;
   #endif
-  //project_args.vsync_callback = EngineVsyncCallback;
+  project_args.vsync_callback = fwr_engine_vsync_callback;
 
   if (instance->fl_proc_table.RunsAOTCompiledDartCode()) {
     wlr_log(WLR_ERROR, "TODO: AOT");
