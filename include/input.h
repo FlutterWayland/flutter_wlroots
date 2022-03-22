@@ -9,6 +9,7 @@
 struct fwr_input_state {
     bool mouse_down;
     uint32_t mouse_button_mask;
+    uint32_t fl_mouse_button_mask;
 };
 
 struct fwr_input_touch_point_state {
