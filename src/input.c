@@ -129,6 +129,25 @@ static void on_server_cursor_button(struct wl_listener *listener, void *data) {
 
 static void on_server_cursor_axis(struct wl_listener *listener, void *data) {
   struct fwr_instance *instance = wl_container_of(listener, instance, cursor_axis);
+  struct wlr_event_pointer_axis *event = data;
+
+  wlr_xcursor_manager_set_cursor_image(instance->cursor_mgr, "left_ptr",
+                                       instance->cursor);
+
+  FlutterPointerEvent pointer_event = {};
+  pointer_event.struct_size = sizeof(FlutterPointerEvent);
+  pointer_event.x = instance->cursor->x;
+  pointer_event.y = instance->cursor->y;
+  pointer_event.device = 0;
+  pointer_event.signal_kind = kFlutterPointerSignalKindScroll;
+  pointer_event.scroll_delta_x = event->orientation == WLR_AXIS_ORIENTATION_HORIZONTAL ? event->delta : 0;
+  pointer_event.scroll_delta_y = event->orientation == WLR_AXIS_ORIENTATION_VERTICAL ? event->delta : 0;
+  pointer_event.device_kind = kFlutterPointerDeviceKindMouse;
+  pointer_event.buttons = instance->input.mouse_button_mask;
+  // TODO this is not 100% right as we should return the timestamp from libinput.
+  // On my machine these seem to be using the same source but differnt unit, is this a guarantee?
+  pointer_event.timestamp = instance->fl_proc_table.GetCurrentTime();
+  instance->fl_proc_table.SendPointerEvent(instance->engine, &pointer_event, 1);
 }
 
 static void on_server_cursor_frame(struct wl_listener *listener, void *data) {
@@ -339,6 +358,22 @@ void fwr_handle_surface_pointer_event_message(struct fwr_instance *instance, con
   double transformed_local_pos_x = message.local_pos_x / message.widget_size_x * surface_state->width;
   double transformed_local_pos_y = message.local_pos_y / message.widget_size_y * surface_state->height;
 
+  double amount;
+  enum wlr_axis_orientation orientation;
+
+  if (message.scroll_delta_x != 0 && message.scroll_delta_y == 0) {
+    amount = message.scroll_delta_x;
+    orientation = WLR_AXIS_ORIENTATION_HORIZONTAL;
+  } else if (message.scroll_delta_x == 0 && message.scroll_delta_y != 0) {
+    amount = message.scroll_delta_y;
+    orientation = WLR_AXIS_ORIENTATION_VERTICAL;
+  } else {
+    amount = 0;
+    orientation = WLR_AXIS_ORIENTATION_VERTICAL;
+  }
+
+  int32_t discrete = amount >= 0 ? 1 : -1;
+
   switch (message.device_kind) {
     case pointerKindMouse: {
       switch (message.event_type) {
@@ -353,6 +388,10 @@ void fwr_handle_surface_pointer_event_message(struct fwr_instance *instance, con
         case pointerMoveEvent: {
           wlr_seat_pointer_notify_enter(instance->seat, view->surface->surface, transformed_local_pos_x, transformed_local_pos_y);
           wlr_seat_pointer_notify_motion(instance->seat, message.timestamp / NS_PER_MS, transformed_local_pos_x, transformed_local_pos_y);
+          break;
+        }
+        case pointerScrollEvent: {
+          wlr_seat_pointer_notify_axis(instance->seat, message.timestamp / NS_PER_MS, orientation, amount, discrete, WLR_AXIS_SOURCE_WHEEL);
           break;
         }
         case pointerExitEvent: {

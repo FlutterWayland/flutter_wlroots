@@ -11,6 +11,8 @@ struct surface_pointer_event_message {
     double local_pos_y;
     double widget_size_x;
     double widget_size_y;
+    double scroll_delta_x;
+    double scroll_delta_y;
     uint8_t event_type;
     int64_t timestamp;
 };
