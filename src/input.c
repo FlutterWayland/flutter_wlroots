@@ -1,5 +1,6 @@
 #include "flutter_embedder.h"
 #include <stdlib.h>
+#include <linux/input-event-codes.h>
 
 #define WLR_USE_UNSTABLE
 #include <wlr/types/wlr_cursor.h>
@@ -23,23 +24,23 @@
 
 static uint32_t uapi_mouse_button_to_flutter(uint32_t uapi_button) {
   switch (uapi_button) {
-    case 0x110: return 1; // BTN_LEFT
-    case 0x111: return 2; // BTN_RIGHT
-    case 0x112: return 3; // BTN_MIDDLE
-    case 0x116: return 4; // BTN_BACK
-    case 0x115: return 5; // BTN_FORWARD
-    case 0x113: return 6; // BTN_SIDE
-    case 0x114: return 7; // BTN_EXTRA
-    case 0x100: return 8; // BTN_0
-    case 0x101: return 9; // BTN_1
-    case 0x102: return 10; // BTN_2
-    case 0x103: return 11; // BTN_3
-    case 0x104: return 12; // BTN_4
-    case 0x105: return 13; // BTN_5
-    case 0x106: return 14; // BTN_6
-    case 0x107: return 15; // BTN_7
-    case 0x108: return 16; // BTN_8
-    case 0x109: return 17; // BTN_9
+    case BTN_LEFT: return 1;
+    case BTN_RIGHT: return 2;
+    case BTN_MIDDLE: return 3;
+    case BTN_BACK: return 4;
+    case BTN_FORWARD: return 5;
+    case BTN_SIDE: return 6;
+    case BTN_EXTRA: return 7;
+    case BTN_0: return 8;
+    case BTN_1: return 9;
+    case BTN_2: return 10;
+    case BTN_3: return 11;
+    case BTN_4: return 12;
+    case BTN_5: return 13;
+    case BTN_6: return 14;
+    case BTN_7: return 15;
+    case BTN_8: return 16;
+    case BTN_9: return 17;
     default: return 0;
   }
 }
@@ -129,6 +130,25 @@ static void on_server_cursor_button(struct wl_listener *listener, void *data) {
 
 static void on_server_cursor_axis(struct wl_listener *listener, void *data) {
   struct fwr_instance *instance = wl_container_of(listener, instance, cursor_axis);
+  struct wlr_event_pointer_axis *event = data;
+
+  wlr_xcursor_manager_set_cursor_image(instance->cursor_mgr, "left_ptr",
+                                       instance->cursor);
+
+  FlutterPointerEvent pointer_event = {};
+  pointer_event.struct_size = sizeof(FlutterPointerEvent);
+  pointer_event.x = instance->cursor->x;
+  pointer_event.y = instance->cursor->y;
+  pointer_event.device = 0;
+  pointer_event.signal_kind = kFlutterPointerSignalKindScroll;
+  pointer_event.scroll_delta_x = event->orientation == WLR_AXIS_ORIENTATION_HORIZONTAL ? event->delta : 0;
+  pointer_event.scroll_delta_y = event->orientation == WLR_AXIS_ORIENTATION_VERTICAL ? event->delta : 0;
+  pointer_event.device_kind = kFlutterPointerDeviceKindMouse;
+  pointer_event.buttons = instance->input.mouse_button_mask;
+  // TODO this is not 100% right as we should return the timestamp from libinput.
+  // On my machine these seem to be using the same source but differnt unit, is this a guarantee?
+  pointer_event.timestamp = instance->fl_proc_table.GetCurrentTime();
+  instance->fl_proc_table.SendPointerEvent(instance->engine, &pointer_event, 1);
 }
 
 static void on_server_cursor_frame(struct wl_listener *listener, void *data) {
@@ -338,27 +358,69 @@ void fwr_handle_surface_pointer_event_message(struct fwr_instance *instance, con
 
   double transformed_local_pos_x = message.local_pos_x / message.widget_size_x * surface_state->width;
   double transformed_local_pos_y = message.local_pos_y / message.widget_size_y * surface_state->height;
+  double scroll_amount;
+  enum wlr_axis_orientation scroll_orientation;
+
+  if (message.scroll_delta_x != 0 && message.scroll_delta_y == 0) {
+    scroll_amount = message.scroll_delta_x;
+    scroll_orientation = WLR_AXIS_ORIENTATION_HORIZONTAL;
+  } else if (message.scroll_delta_x == 0 && message.scroll_delta_y != 0) {
+    scroll_amount = message.scroll_delta_y;
+    scroll_orientation = WLR_AXIS_ORIENTATION_VERTICAL;
+  } else {
+    scroll_amount = 0;
+    scroll_orientation = WLR_AXIS_ORIENTATION_VERTICAL;
+  }
+
+  int32_t discrete_scroll_amount = scroll_amount >= 0 ? 1 : -1;
+
+  enum wlr_button_state button_state = message.buttons > instance->input.fl_mouse_button_mask
+      ? WLR_BUTTON_PRESSED
+      : WLR_BUTTON_RELEASED;
+  uint32_t mouse_diff_mask = instance->input.fl_mouse_button_mask ^ message.buttons;
+  uint32_t mouse_button;
+
+    switch(mouse_diff_mask) {
+    case kFlutterPointerButtonMousePrimary:
+      mouse_button = BTN_LEFT;
+      break;
+    case kFlutterPointerButtonMouseSecondary:
+      mouse_button = BTN_RIGHT;
+      break;
+    case kFlutterPointerButtonMouseMiddle:
+      mouse_button = BTN_MIDDLE;
+      break;
+    case kFlutterPointerButtonMouseBack:
+      mouse_button = BTN_BACK;
+      break;
+    case kFlutterPointerButtonMouseForward:
+      mouse_button = BTN_FORWARD;
+      break;
+    default:
+      mouse_button = 0;
+      break;
+  }
+
+  instance->input.fl_mouse_button_mask = message.buttons;
 
   switch (message.device_kind) {
     case pointerKindMouse: {
-      switch (message.event_type) {
-        case pointerDownEvent:
-          wlr_seat_pointer_notify_button(instance->seat, message.timestamp / NS_PER_MS, 0x110, WLR_BUTTON_PRESSED);
-          break;
-        case pointerUpEvent:
-          wlr_seat_pointer_notify_button(instance->seat, message.timestamp / NS_PER_MS, 0x110, WLR_BUTTON_RELEASED);
-          break;
-        case pointerHoverEvent:
-        case pointerEnterEvent:
-        case pointerMoveEvent: {
-          wlr_seat_pointer_notify_enter(instance->seat, view->surface->surface, transformed_local_pos_x, transformed_local_pos_y);
-          wlr_seat_pointer_notify_motion(instance->seat, message.timestamp / NS_PER_MS, transformed_local_pos_x, transformed_local_pos_y);
-          break;
-        }
-        case pointerExitEvent: {
-          wlr_seat_pointer_clear_focus(instance->seat);
-          break;
-        }
+      wlr_seat_pointer_notify_enter(instance->seat, view->surface->surface, transformed_local_pos_x, transformed_local_pos_y);
+
+      if(message.event_type == pointerExitEvent) {
+        wlr_seat_pointer_clear_focus(instance->seat);
+      }
+
+      if(mouse_button != 0) {
+        wlr_seat_pointer_notify_button(instance->seat, message.timestamp / NS_PER_MS, mouse_button, button_state);
+      }
+
+      wlr_seat_pointer_notify_motion(instance->seat, message.timestamp / NS_PER_MS, transformed_local_pos_x, transformed_local_pos_y);
+
+      if(scroll_amount != 0) {
+        wlr_seat_pointer_notify_axis(
+          instance->seat, message.timestamp / NS_PER_MS, scroll_orientation,
+          scroll_amount, discrete_scroll_amount, WLR_AXIS_SOURCE_WHEEL);
       }
 
       wlr_seat_pointer_notify_frame(instance->seat);

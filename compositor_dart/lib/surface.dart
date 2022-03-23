@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
-typedef void _OnWidgetSizeChange(Size? size);
+typedef _OnWidgetSizeChange = void Function(Size? size);
 
 class _MeasureSizeRenderObject extends RenderProxyBox {
   Size? oldSize;
@@ -73,24 +73,17 @@ class _SurfaceViewState extends State<SurfaceView> {
     }
   }
 
-  void onEnter(PointerEnterEvent event) {
-    controller.dispatchPointerEvent(event);
-  }
-
-  void onExit(PointerExitEvent event) {
-    controller.dispatchPointerEvent(event);
-  }
-
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
+    return Listener(
+      onPointerSignal: controller.dispatchPointerEvent,
       child: Focus(
         child: _MeasureSize(
           onChange: (size) {
             if (size != null) {
               controller.setSize(size);
             }
-          }, 
+          },
           child: PlatformViewSurface(
             controller: controller,
             hitTestBehavior: PlatformViewHitTestBehavior.opaque,
@@ -98,11 +91,8 @@ class _SurfaceViewState extends State<SurfaceView> {
           ),
         ),
       ),
-      onEnter: onEnter,
-      onExit: onExit,
     );
   }
-
 }
 
 class _CompositorPlatformViewController extends PlatformViewController {
@@ -113,7 +103,8 @@ class _CompositorPlatformViewController extends PlatformViewController {
 
   void setSize(Size size) {
     this.size = size;
-    compositor.platform.surfaceToplevelSetSize(surface, size.width.round(), size.height.round());
+    compositor.platform.surfaceToplevelSetSize(
+        surface, size.width.round(), size.height.round());
   }
 
   @override
@@ -123,20 +114,21 @@ class _CompositorPlatformViewController extends PlatformViewController {
   Future<void> dispatchPointerEvent(PointerEvent event) async {
     //print("${event.toString()}");
 
-    int device_kind;
+    final int deviceKind;
     switch (event.kind) {
       case PointerDeviceKind.mouse:
-        device_kind = pointerKindMouse;
+        deviceKind = pointerKindMouse;
         break;
       case PointerDeviceKind.touch:
-        device_kind = pointerKindTouch;
+        deviceKind = pointerKindTouch;
         break;
       default:
-        device_kind = pointerKindUnknown;
+        deviceKind = pointerKindUnknown;
         break;
     }
 
-    int eventType = pointerUnknownEvent;
+    final int eventType;
+    Offset scrollAmount = Offset.zero;
     if (event is PointerDownEvent) {
       eventType = pointerDownEvent;
     } else if (event is PointerUpEvent) {
@@ -149,6 +141,11 @@ class _CompositorPlatformViewController extends PlatformViewController {
       eventType = pointerEnterEvent;
     } else if (event is PointerExitEvent) {
       eventType = pointerExitEvent;
+    } else if (event is PointerScrollEvent) {
+      eventType = pointerScrollEvent;
+      scrollAmount = event.scrollDelta;
+    } else {
+      eventType = pointerUnknownEvent;
     }
 
     List data = [
@@ -160,7 +157,7 @@ class _CompositorPlatformViewController extends PlatformViewController {
       event.distance,
       event.down,
       event.embedderId,
-      device_kind,
+      deviceKind,
       event.localDelta.dx,
       event.localDelta.dy,
       event.localPosition.dx,
@@ -181,6 +178,8 @@ class _CompositorPlatformViewController extends PlatformViewController {
       eventType,
       size.width,
       size.height,
+      scrollAmount.dx,
+      scrollAmount.dy,
     ];
 
     //print("pointerevent $data");
@@ -199,5 +198,4 @@ class _CompositorPlatformViewController extends PlatformViewController {
 
   @override
   int get viewId => surface.handle;
-
 }
