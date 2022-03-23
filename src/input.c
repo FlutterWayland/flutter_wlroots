@@ -405,9 +405,9 @@ void fwr_handle_surface_pointer_event_message(struct fwr_instance *instance, con
 
   switch (message.device_kind) {
     case pointerKindMouse: {
-      if(message.event_type == pointerEnterEvent) {
-        wlr_seat_pointer_notify_enter(instance->seat, view->surface->surface, transformed_local_pos_x, transformed_local_pos_y);
-      } else if(message.event_type == pointerExitEvent) {
+      wlr_seat_pointer_notify_enter(instance->seat, view->surface->surface, transformed_local_pos_x, transformed_local_pos_y);
+
+      if(message.event_type == pointerExitEvent) {
         wlr_seat_pointer_clear_focus(instance->seat);
       }
 
@@ -415,7 +415,6 @@ void fwr_handle_surface_pointer_event_message(struct fwr_instance *instance, con
         wlr_seat_pointer_notify_button(instance->seat, message.timestamp / NS_PER_MS, mouse_button, button_state);
       }
 
-      wlr_seat_pointer_notify_enter(instance->seat, view->surface->surface, transformed_local_pos_x, transformed_local_pos_y);
       wlr_seat_pointer_notify_motion(instance->seat, message.timestamp / NS_PER_MS, transformed_local_pos_x, transformed_local_pos_y);
 
       if(scroll_amount != 0) {
