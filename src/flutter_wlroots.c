@@ -164,6 +164,7 @@ static void engine_cb_platform_message(
       instance->fl_proc_table.SendPlatformMessageResponse(
           instance->engine, engine_message->response_handle,
           method_call_null_success, sizeof(method_call_null_success));
+      return;
     }
 
     wlr_log(WLR_INFO, "Unhandled platform message: channel: %s %s", engine_message->channel, method_name);

@@ -7,9 +7,13 @@
 #include "standard_message_codec.h"
 
 struct fwr_input_state {
-    bool mouse_down;
     uint32_t mouse_button_mask;
     uint32_t fl_mouse_button_mask;
+
+    // Accumulated state for cursor before frame.
+    uint32_t acc_mouse_button_mask;
+    double acc_scroll_delta_x;
+    double acc_scroll_delta_y;
 };
 
 struct fwr_input_touch_point_state {
