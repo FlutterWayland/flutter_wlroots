@@ -10,5 +10,4 @@ fwr_src += files(
     'output.c',
     'surface.c',
     'platform_channel.c',
-    'key_mapping.cc',
 )

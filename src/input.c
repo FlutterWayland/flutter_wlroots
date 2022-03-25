@@ -26,7 +26,6 @@
 #include "handle_map.h"
 #include "messages.h"
 #include "platform_channel.h"
-#include "key_mapping.h"
 
 #define NS_PER_MS 1000000
 
