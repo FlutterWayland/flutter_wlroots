@@ -17,7 +17,7 @@ bool decode_surface_pointer_event_message(struct dart_value *value, struct surfa
     if (value->type != dvList) {
         return false;
     }
-    if (value->list.length != 29) {
+    if (value->list.length != 31) {
         return false;
     }
 
@@ -48,6 +48,10 @@ bool decode_surface_pointer_event_message(struct dart_value *value, struct surfa
     // 24: event.tilt,
     // 25: event.timeStamp.inMicroseconds,
     // 26: event type
+    // 27: size.width,
+    // 28: size.height,
+    // 29: scrollAmount.dx
+    // 30: scrollAmount.dy
 
     DECODE_INTEGER(out->surface_handle, &value->list.values[0]);
     DECODE_INTEGER(out->buttons, &value->list.values[1]);
@@ -58,6 +62,8 @@ bool decode_surface_pointer_event_message(struct dart_value *value, struct surfa
     DECODE_INTEGER(out->event_type, &value->list.values[26]);
     DECODE_FLOAT64(out->widget_size_x, &value->list.values[27]);
     DECODE_FLOAT64(out->widget_size_y, &value->list.values[28]);
+    DECODE_FLOAT64(out->scroll_delta_x, &value->list.values[29]);
+    DECODE_FLOAT64(out->scroll_delta_y, &value->list.values[30]);
 
     return true;
 }

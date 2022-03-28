@@ -163,6 +163,13 @@ static void engine_cb_platform_message(
       return;
     }
 
+    if (strcmp(method_name, "is_compositor") == 0) {
+      // Just send a success response.
+      instance->fl_proc_table.SendPlatformMessageResponse(
+          instance->engine, engine_message->response_handle,
+          method_call_null_success, sizeof(method_call_null_success));
+      return;
+    }
 
     wlr_log(WLR_INFO, "Unhandled platform message: channel: %s %s", engine_message->channel, method_name);
     goto error;
@@ -306,13 +313,14 @@ bool fwr_instance_create(struct fwr_instance_opts opts, struct fwr_instance **in
   #ifdef FLUTTER_COMPOSITOR
   project_args.compositor = &instance->fl_compositor;
   #endif
-  //project_args.vsync_callback = EngineVsyncCallback;
+  project_args.vsync_callback = fwr_engine_vsync_callback;
 
   if (instance->fl_proc_table.RunsAOTCompiledDartCode()) {
     wlr_log(WLR_ERROR, "TODO: AOT");
     return false;
   }
 
+  wlr_log(WLR_INFO, "Pre engine run");
   FlutterEngineResult fl_result = instance->fl_proc_table.Run(
     FLUTTER_ENGINE_VERSION,
     &renderer_config,
@@ -325,12 +333,14 @@ bool fwr_instance_create(struct fwr_instance_opts opts, struct fwr_instance **in
     wlr_log(WLR_ERROR, "Flutter Engine Run failed!");
   }
 
-  FlutterWindowMetricsEvent window_metrics = {};
-  window_metrics.struct_size = sizeof(FlutterWindowMetricsEvent);
-  window_metrics.width = 1280;
-  window_metrics.height = 720;
-  window_metrics.pixel_ratio = 1.0;
-  instance->fl_proc_table.SendWindowMetricsEvent(instance->engine, &window_metrics);
+  if (instance->output != NULL) {
+    FlutterWindowMetricsEvent window_metrics = {};
+    window_metrics.struct_size = sizeof(FlutterWindowMetricsEvent);
+    window_metrics.width = instance->output->wlr_output->width;
+    window_metrics.height = instance->output->wlr_output->height;
+    window_metrics.pixel_ratio = 1.0;
+    instance->fl_proc_table.SendWindowMetricsEvent(instance->engine, &window_metrics);
+  }
 
   FlutterPointerEvent pointer_event = {};
   pointer_event.struct_size = sizeof(FlutterPointerEvent);

@@ -1,4 +1,7 @@
 #include "flutter_embedder.h"
+#include <stdint.h>
+#include <stdlib.h>
+#include <linux/input-event-codes.h>
 
 #define WLR_USE_UNSTABLE
 #include <wlr/types/wlr_cursor.h>
@@ -9,6 +12,7 @@
 #include <wlr/types/wlr_input_device.h>
 #include <wlr/types/wlr_keyboard.h>
 
+#include <wlr/types/wlr_touch.h>
 #include <wlr/backend.h>
 #include <wlr/util/log.h>
 #include <wlr/types/wlr_seat.h>
@@ -31,23 +35,46 @@
 
 static uint32_t uapi_mouse_button_to_flutter(uint32_t uapi_button) {
   switch (uapi_button) {
-    case 0x110: return 1; // BTN_LEFT
-    case 0x111: return 2; // BTN_RIGHT
-    case 0x112: return 3; // BTN_MIDDLE
-    case 0x116: return 4; // BTN_BACK
-    case 0x115: return 5; // BTN_FORWARD
-    case 0x113: return 6; // BTN_SIDE
-    case 0x114: return 7; // BTN_EXTRA
-    case 0x100: return 8; // BTN_0
-    case 0x101: return 9; // BTN_1
-    case 0x102: return 10; // BTN_2
-    case 0x103: return 11; // BTN_3
-    case 0x104: return 12; // BTN_4
-    case 0x105: return 13; // BTN_5
-    case 0x106: return 14; // BTN_6
-    case 0x107: return 15; // BTN_7
-    case 0x108: return 16; // BTN_8
-    case 0x109: return 17; // BTN_9
+    case BTN_LEFT: return 1;
+    case BTN_RIGHT: return 2;
+    case BTN_MIDDLE: return 3;
+    case BTN_BACK: return 4;
+    case BTN_FORWARD: return 5;
+    case BTN_SIDE: return 6;
+    case BTN_EXTRA: return 7;
+    case BTN_0: return 8;
+    case BTN_1: return 9;
+    case BTN_2: return 10;
+    case BTN_3: return 11;
+    case BTN_4: return 12;
+    case BTN_5: return 13;
+    case BTN_6: return 14;
+    case BTN_7: return 15;
+    case BTN_8: return 16;
+    case BTN_9: return 17;
+    default: return 0;
+  }
+}
+
+static uint32_t flutter_mouse_button_to_uapi(uint32_t flutter_button) {
+  switch (flutter_button) {
+    case 1: return BTN_LEFT;
+    case 2: return BTN_RIGHT;
+    case 3: return BTN_MIDDLE;
+    case 4: return BTN_BACK;
+    case 5: return BTN_FORWARD;
+    case 6: return BTN_SIDE;
+    case 7: return BTN_EXTRA;
+    case 8: return BTN_0;
+    case 9: return BTN_1;
+    case 10: return BTN_2;
+    case 11: return BTN_3;
+    case 12: return BTN_4;
+    case 13: return BTN_5;
+    case 14: return BTN_6;
+    case 15: return BTN_7;
+    case 16: return BTN_8;
+    case 17: return BTN_9;
     default: return 0;
   }
 }
@@ -55,27 +82,6 @@ static uint32_t uapi_mouse_button_to_flutter(uint32_t uapi_button) {
 static void process_cursor_motion(struct fwr_instance *instance, uint32_t time) {
   wlr_xcursor_manager_set_cursor_image(instance->cursor_mgr, "left_ptr",
                                        instance->cursor);
-  //wlr_log(WLR_INFO, "%ld %d", instance->fl_proc_table.GetCurrentTime(), time);
-
-  FlutterPointerEvent pointer_event = {};
-  pointer_event.struct_size = sizeof(FlutterPointerEvent);
-  if (instance->input.mouse_down) {
-    pointer_event.phase = kMove;
-  } else {
-    pointer_event.phase = kHover;
-  }
-  pointer_event.x = instance->cursor->x;
-  pointer_event.y = instance->cursor->y;
-  pointer_event.device = 0;
-  pointer_event.signal_kind = kFlutterPointerSignalKindNone;
-  pointer_event.scroll_delta_x = 0;
-  pointer_event.scroll_delta_y = 0;
-  pointer_event.device_kind = kFlutterPointerDeviceKindMouse;
-  pointer_event.buttons = instance->input.mouse_button_mask;
-  // TODO this is not 100% right as we should return the timestamp from libinput.
-  // On my machine these seem to be using the same source but differnt unit, is this a guarantee?
-  pointer_event.timestamp = instance->fl_proc_table.GetCurrentTime();
-  instance->fl_proc_table.SendPointerEvent(instance->engine, &pointer_event, 1);
 }
 
 static void on_server_cursor_motion(struct wl_listener *listener, void *data) {
@@ -99,18 +105,37 @@ static void on_server_cursor_button(struct wl_listener *listener, void *data) {
   struct fwr_instance *instance = wl_container_of(listener, instance, cursor_button);
   struct wlr_event_pointer_button *event = data;
 
-  uint32_t last_mask = instance->input.mouse_button_mask;
-
   uint32_t fl_button = uapi_mouse_button_to_flutter(event->button);
   if (fl_button != 0) {
-    uint32_t mask = 1 >> (fl_button - 1);
+    uint32_t mask = 1 << (fl_button - 1);
     if (event->state == WLR_BUTTON_PRESSED) {
-      instance->input.mouse_button_mask |= mask;
+      instance->input.acc_mouse_button_mask |= mask;
     } else if (event->state == WLR_BUTTON_RELEASED) {
-      instance->input.mouse_button_mask &= ~mask;
+      instance->input.acc_mouse_button_mask &= ~mask;
     }
   }
-  uint32_t curr_mask = instance->input.mouse_button_mask;
+}
+
+static void on_server_cursor_axis(struct wl_listener *listener, void *data) {
+  struct fwr_instance *instance = wl_container_of(listener, instance, cursor_axis);
+  struct wlr_event_pointer_axis *event = data;
+
+  wlr_xcursor_manager_set_cursor_image(instance->cursor_mgr, "left_ptr",
+                                       instance->cursor);
+
+  if (event->orientation == WLR_AXIS_ORIENTATION_HORIZONTAL) {
+    instance->input.acc_scroll_delta_x += event->delta;
+  }
+  if (event->orientation == WLR_AXIS_ORIENTATION_VERTICAL) {
+    instance->input.acc_scroll_delta_x += event->delta;
+  }
+}
+
+static void on_server_cursor_frame(struct wl_listener *listener, void *data) {
+  struct fwr_instance *instance = wl_container_of(listener, instance, cursor_frame);
+
+  uint32_t last_mask = instance->input.mouse_button_mask;
+  uint32_t curr_mask = instance->input.acc_mouse_button_mask;
 
   FlutterPointerEvent pointer_event = {};
   pointer_event.struct_size = sizeof(FlutterPointerEvent);
@@ -118,6 +143,8 @@ static void on_server_cursor_button(struct wl_listener *listener, void *data) {
     pointer_event.phase = kDown;
   } else if (last_mask != 0 && curr_mask == 0) {
     pointer_event.phase = kUp;
+  } else if (curr_mask == 0) {
+    pointer_event.phase = kHover;
   } else {
     pointer_event.phase = kMove;
   }
@@ -125,34 +152,120 @@ static void on_server_cursor_button(struct wl_listener *listener, void *data) {
   pointer_event.y = instance->cursor->y;
   pointer_event.device = 0;
   pointer_event.signal_kind = kFlutterPointerSignalKindNone;
-  pointer_event.scroll_delta_x = 0;
-  pointer_event.scroll_delta_y = 0;
+  pointer_event.scroll_delta_x = instance->input.acc_scroll_delta_x;
+  pointer_event.scroll_delta_y = instance->input.acc_scroll_delta_y;
   pointer_event.device_kind = kFlutterPointerDeviceKindMouse;
   pointer_event.buttons = curr_mask;
   // TODO this is not 100% right as we should return the timestamp from libinput.
   // On my machine these seem to be using the same source but differnt unit, is this a guarantee?
   pointer_event.timestamp = instance->fl_proc_table.GetCurrentTime();
   instance->fl_proc_table.SendPointerEvent(instance->engine, &pointer_event, 1);
-}
 
-static void on_server_cursor_axis(struct wl_listener *listener, void *data) {
-  struct fwr_instance *instance = wl_container_of(listener, instance, cursor_axis);
-}
-
-static void on_server_cursor_frame(struct wl_listener *listener, void *data) {
-  struct fwr_instance *instance = wl_container_of(listener, instance, cursor_frame);
+  instance->input.mouse_button_mask = curr_mask;
+  instance->input.acc_scroll_delta_x = 0.0;
+  instance->input.acc_scroll_delta_y = 0.0;
 }
 
 static void on_server_cursor_touch_down(struct wl_listener *listener, void *data) {
   struct fwr_instance *instance = wl_container_of(listener, instance, cursor_touch_down);
+  struct wlr_event_touch_down *event = data;
+  struct fwr_input_device_state *state = event->device->data;
+
+  if (event->touch_id >= 10) return;
+  state->touch_points[event->touch_id].x = event->x;
+  state->touch_points[event->touch_id].y = event->y;
+
+  double screen_width = 1.0;
+  double screen_height = 1.0;
+  if (instance->output != NULL) {
+    screen_width = instance->output->wlr_output->width;
+    screen_height = instance->output->wlr_output->height;
+  }
+
+  wlr_log(WLR_INFO, "touch down %f %f", event->x, event->y);
+
+  FlutterPointerEvent pointer_event = {};
+  pointer_event.struct_size = sizeof(FlutterPointerEvent);
+  pointer_event.device_kind = kFlutterPointerDeviceKindTouch;
+  pointer_event.signal_kind = kFlutterPointerSignalKindNone;
+  pointer_event.device = event->touch_id;
+  pointer_event.phase = kAdd;
+  pointer_event.x = event->x * screen_width;
+  pointer_event.y = event->y * screen_height;
+  pointer_event.scroll_delta_x = 0;
+  pointer_event.scroll_delta_y = 0;
+  // TODO this is not 100% right as we should return the timestamp from libinput.
+  // On my machine these seem to be using the same source but differnt unit, is this a guarantee?
+  pointer_event.timestamp = instance->fl_proc_table.GetCurrentTime();
+  instance->fl_proc_table.SendPointerEvent(instance->engine, &pointer_event, 1);
+
+  pointer_event.phase = kDown;
+  instance->fl_proc_table.SendPointerEvent(instance->engine, &pointer_event, 1);
 }
 
 static void on_server_cursor_touch_up(struct wl_listener *listener, void *data) {
   struct fwr_instance *instance = wl_container_of(listener, instance, cursor_touch_up);
+  struct wlr_event_touch_up *event = data;
+  struct fwr_input_device_state *state = event->device->data;
+
+  if (event->touch_id >= 10) return;
+
+  double screen_width = 1.0;
+  double screen_height = 1.0;
+  if (instance->output != NULL) {
+    screen_width = instance->output->wlr_output->width;
+    screen_height = instance->output->wlr_output->height;
+  }
+
+  FlutterPointerEvent pointer_event = {};
+  pointer_event.struct_size = sizeof(FlutterPointerEvent);
+  pointer_event.device_kind = kFlutterPointerDeviceKindTouch;
+  pointer_event.signal_kind = kFlutterPointerSignalKindNone;
+  pointer_event.device = event->touch_id;
+  pointer_event.phase = kUp;
+  pointer_event.x = state->touch_points[event->touch_id].x * screen_width;
+  pointer_event.y = state->touch_points[event->touch_id].y * screen_height;
+  pointer_event.scroll_delta_x = 0;
+  pointer_event.scroll_delta_y = 0;
+  // TODO this is not 100% right as we should return the timestamp from libinput.
+  // On my machine these seem to be using the same source but differnt unit, is this a guarantee?
+  pointer_event.timestamp = instance->fl_proc_table.GetCurrentTime();
+  instance->fl_proc_table.SendPointerEvent(instance->engine, &pointer_event, 1);
+
+  pointer_event.phase = kRemove;
+  instance->fl_proc_table.SendPointerEvent(instance->engine, &pointer_event, 1);
 }
 
 static void on_server_cursor_touch_motion(struct wl_listener *listener, void *data) {
   struct fwr_instance *instance = wl_container_of(listener, instance, cursor_touch_motion);
+  struct wlr_event_touch_motion *event = data;
+  struct fwr_input_device_state *state = event->device->data;
+
+  if (event->touch_id >= 10) return;
+  state->touch_points[event->touch_id].x = event->x;
+  state->touch_points[event->touch_id].y = event->y;
+
+  double screen_width = 1.0;
+  double screen_height = 1.0;
+  if (instance->output != NULL) {
+    screen_width = instance->output->wlr_output->width;
+    screen_height = instance->output->wlr_output->height;
+  }
+
+  FlutterPointerEvent pointer_event = {};
+  pointer_event.struct_size = sizeof(FlutterPointerEvent);
+  pointer_event.device_kind = kFlutterPointerDeviceKindTouch;
+  pointer_event.signal_kind = kFlutterPointerSignalKindNone;
+  pointer_event.device = event->touch_id;
+  pointer_event.phase = kMove;
+  pointer_event.x = event->x * screen_width;
+  pointer_event.y = event->y * screen_height;
+  pointer_event.scroll_delta_x = 0;
+  pointer_event.scroll_delta_y = 0;
+  // TODO this is not 100% right as we should return the timestamp from libinput.
+  // On my machine these seem to be using the same source but differnt unit, is this a guarantee?
+  pointer_event.timestamp = instance->fl_proc_table.GetCurrentTime();
+  instance->fl_proc_table.SendPointerEvent(instance->engine, &pointer_event, 1);
 }
 
 static void on_server_cursor_touch_frame(struct wl_listener *listener, void *data) {
@@ -369,12 +482,15 @@ static void server_new_pointer(struct fwr_instance *instance,
 
 static void server_new_touch(struct fwr_instance *instance,
 		struct wlr_input_device *device) {
-
+  wlr_cursor_attach_input_device(instance->cursor, device);
 }
 
 static void on_server_new_input(struct wl_listener *listener, void *data) {
   struct fwr_instance *instance = wl_container_of(listener, instance, new_input);
   struct wlr_input_device *device = data;
+
+  struct fwr_input_device_state *state = calloc(1, sizeof(struct fwr_input_device_state));
+  device->data = state;
 
   switch (device->type) {
 	case WLR_INPUT_DEVICE_KEYBOARD:
@@ -399,8 +515,8 @@ static void on_server_new_input(struct wl_listener *listener, void *data) {
 }
 
 void fwr_input_init(struct fwr_instance *instance) {
-  instance->input.mouse_down = false;
   instance->input.mouse_button_mask = 0;
+  instance->input.fl_mouse_button_mask = 0;
 
   instance->cursor = wlr_cursor_create();
 	wlr_cursor_attach_output_layout(instance->cursor, instance->output_layout);
@@ -495,24 +611,51 @@ void fwr_handle_surface_pointer_event_message(struct fwr_instance *instance, con
 
   switch (message.device_kind) {
     case pointerKindMouse: {
-      switch (message.event_type) {
-        case pointerDownEvent:
-          wlr_seat_pointer_notify_button(instance->seat, message.timestamp / NS_PER_MS, 0x110, WLR_BUTTON_PRESSED);
-          break;
-        case pointerUpEvent:
-          wlr_seat_pointer_notify_button(instance->seat, message.timestamp / NS_PER_MS, 0x110, WLR_BUTTON_RELEASED);
-          break;
-        case pointerHoverEvent:
-        case pointerEnterEvent:
-        case pointerMoveEvent: {
-          wlr_seat_pointer_notify_enter(instance->seat, view->surface->surface, transformed_local_pos_x, transformed_local_pos_y);
-          wlr_seat_pointer_notify_motion(instance->seat, message.timestamp / NS_PER_MS, transformed_local_pos_x, transformed_local_pos_y);
-          break;
+      wlr_seat_pointer_notify_enter(instance->seat, view->surface->surface, transformed_local_pos_x, transformed_local_pos_y);
+      wlr_seat_pointer_notify_motion(instance->seat, message.timestamp / NS_PER_MS, transformed_local_pos_x, transformed_local_pos_y);
+
+      for (int n = 0; n < 32; n++) {
+        bool last = ((instance->input.fl_mouse_button_mask >> n) & 0b1) != 0;
+        bool curr = ((message.buttons >> n) & 0b1) != 0;
+
+        uint32_t uapi_button = flutter_mouse_button_to_uapi(n);
+
+        if (!last & curr) {
+          wlr_seat_pointer_notify_button(instance->seat,
+                                        message.timestamp / NS_PER_MS, uapi_button,
+                                        WLR_BUTTON_PRESSED);
+        } else if (last & !curr) {
+          wlr_seat_pointer_notify_button(instance->seat,
+                                        message.timestamp / NS_PER_MS, uapi_button,
+                                        WLR_BUTTON_RELEASED);
         }
-        case pointerExitEvent: {
-          wlr_seat_pointer_clear_focus(instance->seat);
-          break;
-        }
+      }
+      instance->input.fl_mouse_button_mask = message.buttons;
+
+      if (message.scroll_delta_x != 0) {
+        // TODO: Pass this through from the original event instead.
+        // Dependent on getting https://github.com/flutter/flutter/issues/100680 merged.
+        int32_t discrete_scroll_amount = message.scroll_delta_x >= 0 ? 1 : -1;
+
+        wlr_seat_pointer_notify_axis(
+            instance->seat, message.timestamp / NS_PER_MS,
+            WLR_AXIS_ORIENTATION_HORIZONTAL, message.scroll_delta_x,
+            discrete_scroll_amount, WLR_AXIS_SOURCE_WHEEL);
+      }
+
+      if (message.scroll_delta_y != 0) {
+        // TODO: Pass this through from the original event instead.
+        // Dependent on getting https://github.com/flutter/flutter/issues/100680 merged.
+        int32_t discrete_scroll_amount = message.scroll_delta_y >= 0 ? 1 : -1;
+
+        wlr_seat_pointer_notify_axis(
+            instance->seat, message.timestamp / NS_PER_MS,
+            WLR_AXIS_ORIENTATION_VERTICAL, message.scroll_delta_y,
+            discrete_scroll_amount, WLR_AXIS_SOURCE_WHEEL);
+      }
+
+      if(message.event_type == pointerExitEvent) {
+        wlr_seat_pointer_clear_focus(instance->seat);
       }
 
       wlr_seat_pointer_notify_frame(instance->seat);

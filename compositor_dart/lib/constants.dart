@@ -5,7 +5,8 @@ const int pointerHoverEvent = 3;
 const int pointerMoveEvent = 4;
 const int pointerEnterEvent = 5;
 const int pointerExitEvent = 6;
-const int pointerUnknownEvent = 7;
+const int pointerScrollEvent = 7;
+const int pointerUnknownEvent = 8;
 
 const int pointerKindMouse = 1;
 const int pointerKindTouch = 2;

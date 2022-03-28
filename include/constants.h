@@ -6,7 +6,8 @@
 #define pointerMoveEvent 4
 #define pointerEnterEvent 5
 #define pointerExitEvent 6
-#define pointerUnknownEvent 7
+#define pointerScrollEvent 7
+#define pointerUnknownEvent 8
 
 #define pointerKindMouse 1
 #define pointerKindTouch 2

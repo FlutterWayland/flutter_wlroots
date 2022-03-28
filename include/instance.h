@@ -69,7 +69,7 @@ struct fwr_instance {
   pthread_mutex_t platform_task_list_mutex;
   struct fwr_render_task *queued_platform_tasks;
 
-  atomic_llong vsync_baton;
+  atomic_intptr_t vsync_baton;
 
   struct fwr_renderer fwr_renderer;
 };
@@ -82,6 +82,7 @@ struct fwr_output {
 
   struct wl_listener frame;
   struct wl_listener mode;
+  struct wl_listener present;
 };
 
 struct fwr_view {
