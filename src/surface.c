@@ -157,6 +157,8 @@ void fwr_new_xdg_surface(struct wl_listener *listener, void *data) {
 
   struct fwr_view *view = calloc(1, sizeof(struct fwr_view));
 
+  view->instance = instance;
+  view->surface = xdg_surface;
 
   view->map.notify = xdg_toplevel_map;
   wl_signal_add(&xdg_surface->events.map, &view->map);
@@ -165,8 +167,6 @@ void fwr_new_xdg_surface(struct wl_listener *listener, void *data) {
   view->destroy.notify = xdg_toplevel_destroy;
   wl_signal_add(&xdg_surface->events.destroy, &view->destroy);
 
-  view->instance = instance;
-  view->surface = xdg_surface;
   uint32_t view_handle = handle_map_add(instance->views, (void *)view);
   view->handle = view_handle;
 }

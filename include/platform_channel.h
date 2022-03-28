@@ -4,9 +4,7 @@
 #include <stdint.h>
 #include <errno.h>
 #include <flutter_embedder.h>
-#include <collection.h>
-
-#include "platform_channel.h"
+#include "asserts.h"
 
 #define JSON_DECODE_TOKENLIST_SIZE  128
 
