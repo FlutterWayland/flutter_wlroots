@@ -78,6 +78,30 @@ class _SurfaceViewState extends State<SurfaceView> {
     return Listener(
       onPointerSignal: controller.dispatchPointerEvent,
       child: Focus(
+        onKeyEvent: (node, event) {
+          final KeyStatus status;
+
+          if (event is KeyDownEvent) {
+            status = KeyStatus.pressed;
+          } else {
+            status = KeyStatus.released;
+          }
+
+          int? keycode = physicalToXkbMap[event.physicalKey.usbHidUsage];
+
+          if (keycode != null) {
+            compositor.platform.surfaceSendKey(
+              widget.surface,
+              keycode,
+              status,
+              event.timeStamp,
+            );
+
+            return KeyEventResult.handled;
+          }
+
+          return KeyEventResult.ignored;
+        },
         child: _MeasureSize(
           onChange: (size) {
             if (size != null) {

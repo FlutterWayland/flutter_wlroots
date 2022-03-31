@@ -6,6 +6,7 @@
 #include <stdatomic.h>
 
 #include <GLES2/gl2.h>
+#include <xkbcommon/xkbcommon.h>
 #include <wayland-server-core.h>
 
 #include "shaders.h"
@@ -27,6 +28,7 @@ struct fwr_instance {
 
   // Map of `uint32_t handle` => `struct fwr_view view`
   struct handle_map *views;
+  uint32_t current_focused_view;
 
   struct wlr_cursor *cursor;
   struct wlr_xcursor_manager *cursor_mgr;
@@ -43,6 +45,7 @@ struct fwr_instance {
   struct fwr_input_state input;
 
   struct wl_listener new_input;
+  struct wl_list keyboards;
 
   struct wlr_seat *seat;
 
@@ -93,4 +96,15 @@ struct fwr_view {
   struct wl_listener unmap;
   struct wl_listener destroy;
   struct wl_listener commit;
+};
+
+struct fwr_keyboard {
+  struct wl_list link;
+  struct fwr_instance *instance;
+  struct wlr_input_device *device;
+  struct xkb_compose_state *compose_state;
+
+  struct wl_listener modifiers;
+  struct wl_listener key;
+  struct wl_listener destroy;
 };

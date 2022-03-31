@@ -28,3 +28,5 @@ struct fwr_input_device_state {
 void fwr_input_init(struct fwr_instance *instance);
 
 void fwr_handle_surface_pointer_event_message(struct fwr_instance *instance, const FlutterPlatformMessageResponseHandle *handle, struct dart_value *args);
+
+void fwr_handle_surface_keyboard_key_message(struct fwr_instance *instance, const FlutterPlatformMessageResponseHandle *handle, struct dart_value *args);

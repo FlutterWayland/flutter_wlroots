@@ -154,6 +154,10 @@ static void engine_cb_platform_message(
       fwr_handle_surface_pointer_event_message(instance, engine_message->response_handle, &args);
       return;
     }
+    if (strcmp(method_name, "surface_keyboard_key") == 0) {
+      fwr_handle_surface_keyboard_key_message(instance, engine_message->response_handle, &args);
+      return;
+    }
     if (strcmp(method_name, "surface_toplevel_set_size") == 0) {
       fwr_handle_surface_toplevel_set_size(instance, engine_message->response_handle, &args);
       return;

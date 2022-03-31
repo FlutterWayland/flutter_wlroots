@@ -2,19 +2,14 @@ library compositor_dart;
 
 import 'dart:async';
 import 'dart:collection';
-import 'dart:developer';
 import 'dart:io';
 
-import 'package:compositor_dart/surface.dart';
+import 'package:compositor_dart/constants.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:logging/logging.dart';
 
-/// A Calculator.
-class Calculator {
-  /// Returns [value] plus 1.
-  int addOne(int value) => value + 1;
-}
+enum KeyStatus { released, pressed }
 
 class Surface {
   // This is actually used as a pointer on the compositor side.
@@ -40,7 +35,8 @@ class Surface {
 class _CompositorPlatform {
   final MethodChannel channel = const MethodChannel("wlroots");
 
-  final HashMap<String, Future<dynamic> Function(MethodCall)> handlers = HashMap();
+  final HashMap<String, Future<dynamic> Function(MethodCall)> handlers =
+      HashMap();
 
   _CompositorPlatform() {
     channel.setMethodCallHandler((call) async {
@@ -61,12 +57,27 @@ class _CompositorPlatform {
     handlers[method] = handler;
   }
 
-  Future<void> surfaceToplevelSetSize(Surface surface, int width, int height) async {
-    await channel.invokeListMethod("surface_toplevel_set_size", [surface.handle, width, height]);
+  Future<void> surfaceToplevelSetSize(
+      Surface surface, int width, int height) async {
+    await channel.invokeListMethod(
+        "surface_toplevel_set_size", [surface.handle, width, height]);
   }
 
   Future<void> clearFocus(Surface surface) async {
     await channel.invokeMethod("surface_clear_focus", [surface.handle]);
+  }
+
+  Future<void> surfaceSendKey(Surface surface, int keycode, KeyStatus status,
+      Duration timestamp) async {
+    await channel.invokeListMethod(
+      "surface_keyboard_key",
+      [
+        surface.handle,
+        keycode,
+        status.index,
+        timestamp.inMicroseconds,
+      ],
+    );
   }
 }
 
@@ -91,6 +102,8 @@ class Compositor {
   StreamController<Surface> surfaceMapped = StreamController.broadcast();
   StreamController<Surface> surfaceUnmapped = StreamController.broadcast();
 
+  int? keyToXkb(int physicalKey) => physicalToXkbMap[physicalKey];
+
   Compositor() {
     platform.addHandler("surface_map", (call) async {
       Surface surface = Surface(
@@ -110,6 +123,7 @@ class Compositor {
       surfaces.remove(handle);
       surfaceUnmapped.add(surface);
     });
-  }
 
+    platform.addHandler("flutter/keyevent", (call) async {});
+  }
 }

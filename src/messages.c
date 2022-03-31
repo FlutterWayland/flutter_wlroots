@@ -11,6 +11,7 @@
 
 #define DECODE_INTEGER(OUT, VAL) DECODE(OUT, VAL, dvInteger, integer)
 #define DECODE_FLOAT64(OUT, VAL) DECODE(OUT, VAL, dvFloat64, f64)
+#define DECODE_STRING(OUT, VAL) DECODE(OUT, VAL, dvString, dart_string)
 
 bool decode_surface_pointer_event_message(struct dart_value *value, struct surface_pointer_event_message *out) {
     if (value->type != dvList) {
@@ -63,6 +64,22 @@ bool decode_surface_pointer_event_message(struct dart_value *value, struct surfa
     DECODE_FLOAT64(out->widget_size_y, &value->list.values[28]);
     DECODE_FLOAT64(out->scroll_delta_x, &value->list.values[29]);
     DECODE_FLOAT64(out->scroll_delta_y, &value->list.values[30]);
+
+    return true;
+}
+
+bool decode_surface_keyboard_key_message(struct dart_value *value, struct surface_keyboard_key_message *out) {
+        if (value->type != dvList) {
+        return false;
+    }
+    if (value->list.length != 4) {
+        return false;
+    }
+
+    DECODE_INTEGER(out->surface_handle, &value->list.values[0]);
+    DECODE_INTEGER(out->keycode, &value->list.values[1]);
+    DECODE_INTEGER(out->event_type, &value->list.values[2]);
+    DECODE_INTEGER(out->timestamp, &value->list.values[3]);
 
     return true;
 }

@@ -3,3 +3,4 @@ build
 build-clang
 .cache
 subprojects/wlroots
+.vscode

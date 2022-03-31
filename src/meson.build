@@ -9,4 +9,5 @@ fwr_src += files(
     'messages.c',
     'output.c',
     'surface.c',
+    'platform_channel.c',
 )
