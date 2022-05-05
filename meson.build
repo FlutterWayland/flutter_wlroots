@@ -38,6 +38,7 @@ lib_fwr = library(
   fwr_src,
   dependencies : fwr_deps,
   include_directories : [fwr_inc],
+  install: true,
 )
 
 flutter_wlroots = declare_dependency(
