@@ -29,6 +29,11 @@ fwr_deps = [
   threads_dep,
 ]
 
+builtin_plugins = get_option('builtin_plugins')
+foreach builtin_plugin : builtin_plugins 
+  add_project_arguments('-DFWR_BUILTIN_PLUGIN_' + builtin_plugin.to_upper(), language: 'c')
+endforeach
+
 subdir('src')
 
 fwr_inc = include_directories('include')

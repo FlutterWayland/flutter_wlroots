@@ -10,4 +10,8 @@ fwr_src += files(
     'output.c',
     'surface.c',
     'platform_channel.c',
+    'plugin_registry.c',
 )
+
+
+subdir('plugins')

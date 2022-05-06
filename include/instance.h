@@ -13,6 +13,7 @@
 #include "renderer.h"
 #include "input.h"
 #include "handle_map.h"
+#include "plugin_registry.h"
 
 struct fwr_instance {
   struct wl_display *wl_display;
@@ -72,6 +73,8 @@ struct fwr_instance {
   atomic_intptr_t vsync_baton;
 
   struct fwr_renderer fwr_renderer;
+
+  struct fwr_plugin_registry plugin_registry;
 };
 
 struct fwr_output {

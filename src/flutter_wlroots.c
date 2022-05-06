@@ -175,6 +175,19 @@ static void engine_cb_platform_message(
     goto error;
   }
 
+  // Forward to channel handler plugins.
+  for (int i = 0; i < instance->plugin_registry.plugin_channel_handlers_len; i++) {
+    struct fwr_plugin_channel_handler *channel_handler = &instance->plugin_registry.plugin_channel_handlers[i];
+    if (strcmp(engine_message->channel, channel_handler->name) == 0) {
+      if (channel_handler->handle_message(instance, engine_message, channel_handler->data)) {
+        return;
+      } else {
+        goto error;
+      }
+    }
+  }
+
+
 error:
   // TODO(hansihe): Handle messages
   wlr_log(WLR_INFO, "Unhandled platform message: channel: %s", engine_message->channel);
@@ -319,6 +332,10 @@ bool fwr_instance_create(struct fwr_instance_opts opts, struct fwr_instance **in
     wlr_log(WLR_ERROR, "TODO: AOT");
     return false;
   }
+
+  fwr_plugin_registry_init(&instance->plugin_registry);
+  #ifdef FWR_BUILTIN_PLUGIN_TEXT_INPUT
+  #endif // FWR_BUILTIN_PLUGIN_TEXT_INPUT
 
   wlr_log(WLR_INFO, "Pre engine run");
   FlutterEngineResult fl_result = instance->fl_proc_table.Run(
