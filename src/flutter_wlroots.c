@@ -334,8 +334,8 @@ bool fwr_instance_create(struct fwr_instance_opts opts, struct fwr_instance **in
   }
 
   fwr_plugin_registry_init(&instance->plugin_registry);
-  #ifdef FWR_BUILTIN_PLUGIN_TEXT_INPUT
-  #endif // FWR_BUILTIN_PLUGIN_TEXT_INPUT
+  //#ifdef FWR_BUILTIN_PLUGIN_TEXT_INPUT
+  //#endif // FWR_BUILTIN_PLUGIN_TEXT_INPUT
 
   wlr_log(WLR_INFO, "Pre engine run");
   FlutterEngineResult fl_result = instance->fl_proc_table.Run(

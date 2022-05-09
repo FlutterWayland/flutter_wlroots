@@ -1,4 +1,4 @@
 option('examples', type: 'boolean', value: true, description: 'Build example applications')
 option('flutter_compositor', type: 'boolean', value: true, description: 'Use flutter compositor API')
 
-option('builtin_plugins', type: 'array', choices: ['text_input'], value: ['text_input'])
+option('builtin_plugins', type: 'array', choices: [], value: [])

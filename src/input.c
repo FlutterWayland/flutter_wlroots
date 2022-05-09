@@ -127,7 +127,7 @@ static void on_server_cursor_axis(struct wl_listener *listener, void *data) {
     instance->input.acc_scroll_delta_x += event->delta;
   }
   if (event->orientation == WLR_AXIS_ORIENTATION_VERTICAL) {
-    instance->input.acc_scroll_delta_x += event->delta;
+    instance->input.acc_scroll_delta_y += event->delta;
   }
 }
 
@@ -618,7 +618,7 @@ void fwr_handle_surface_pointer_event_message(struct fwr_instance *instance, con
         bool last = ((instance->input.fl_mouse_button_mask >> n) & 0b1) != 0;
         bool curr = ((message.buttons >> n) & 0b1) != 0;
 
-        uint32_t uapi_button = flutter_mouse_button_to_uapi(n);
+        uint32_t uapi_button = flutter_mouse_button_to_uapi(n + 1);
 
         if (!last & curr) {
           wlr_seat_pointer_notify_button(instance->seat,

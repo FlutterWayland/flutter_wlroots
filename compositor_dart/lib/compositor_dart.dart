@@ -35,8 +35,7 @@ class Surface {
 class _CompositorPlatform {
   final MethodChannel channel = const MethodChannel("wlroots");
 
-  final HashMap<String, Future<dynamic> Function(MethodCall)> handlers =
-      HashMap();
+  final HashMap<String, Future<dynamic> Function(MethodCall)> handlers = HashMap();
 
   _CompositorPlatform() {
     channel.setMethodCallHandler((call) async {
@@ -57,18 +56,15 @@ class _CompositorPlatform {
     handlers[method] = handler;
   }
 
-  Future<void> surfaceToplevelSetSize(
-      Surface surface, int width, int height) async {
-    await channel.invokeListMethod(
-        "surface_toplevel_set_size", [surface.handle, width, height]);
+  Future<void> surfaceToplevelSetSize(Surface surface, int width, int height) async {
+    await channel.invokeListMethod("surface_toplevel_set_size", [surface.handle, width, height]);
   }
 
   Future<void> clearFocus(Surface surface) async {
     await channel.invokeMethod("surface_clear_focus", [surface.handle]);
   }
 
-  Future<void> surfaceSendKey(Surface surface, int keycode, KeyStatus status,
-      Duration timestamp) async {
+  Future<void> surfaceSendKey(Surface surface, int keycode, KeyStatus status, Duration timestamp) async {
     await channel.invokeListMethod(
       "surface_keyboard_key",
       [
@@ -81,9 +77,9 @@ class _CompositorPlatform {
   }
 }
 
-final Compositor compositor = Compositor();
-
 class Compositor {
+  static final Compositor compositor = Compositor();
+
   static void initLogger() {
     FlutterError.onError = (FlutterErrorDetails details) {
       FlutterError.presentError(details);
@@ -125,5 +121,19 @@ class Compositor {
     });
 
     platform.addHandler("flutter/keyevent", (call) async {});
+  }
+
+  /// Returns `true` if we are currently running in the compositor embedder.
+  /// If so, all functionality in this library is available.
+  ///
+  /// Returns `false` in all other cases. If so, no funcitonality in this
+  /// library should be used.
+  Future<bool> isCompositor() async {
+    try {
+      await platform.channel.invokeMethod("is_compositor");
+      return true;
+    } on MissingPluginException {
+      return false;
+    }
   }
 }
