@@ -82,7 +82,7 @@ class _CompositorPlatform {
     );
   }
 
-  Future<CompositorSockets?> getSocketPaths() async {
+  Future<CompositorSockets> getSocketPaths() async {
     var response = await channel.invokeMethod("get_socket_paths") as Map<String, String>;
     return CompositorSockets(
       wayland: response["wayland"]!,
@@ -103,6 +103,8 @@ class Compositor {
       stdout.writeln("${record.level.name}: ${record.time}: ${record.message}");
     });
   }
+
+  static bool? _isCompositor;
 
   _CompositorPlatform platform = _CompositorPlatform();
 
@@ -143,11 +145,18 @@ class Compositor {
   /// Returns `false` in all other cases. If so, no funcitonality in this
   /// library should be used.
   Future<bool> isCompositor() async {
+    if (_isCompositor != null) return _isCompositor!;
+
     try {
       await platform.channel.invokeMethod("is_compositor");
-      return true;
+      _isCompositor = true;
     } on MissingPluginException {
-      return false;
+      _isCompositor = false;
     }
+
+    return _isCompositor!;
   }
+
+  /// Will return the paths of the compositor sockets.
+  Future<CompositorSockets> getSocketPaths() => platform.getSocketPaths();
 }
