@@ -47,6 +47,7 @@
 #include "task.h"
 #include "output.h"
 #include "surface.h"
+#include "platform_channel.h"
 
 //#define eglGetProcAddr eglGetProcAddress
 //#define __glintercept_log(...) wlr_log(WLR_INFO, __VA_ARGS__)
@@ -171,6 +172,33 @@ static void engine_cb_platform_message(
       return;
     }
 
+    if (strcmp(method_name, "get_socket_paths") == 0) {
+      platch_respond_success_std(instance, engine_message->response_handle, &(struct std_value) {
+        .type = kStdMap,
+        .size = 2,
+        .keys = (struct std_value[2]) {
+          {
+            .type = kStdString,
+            .string_value = "wayland"
+          },
+          {
+            .type = kStdString,
+            .string_value = "x"
+          }
+        },
+        .values = (struct std_value[2]) {
+          {
+            .type = kStdString,
+            .string_value = (char*) instance->wl_socket,
+          },
+          {
+            .type = kStdString,
+            .string_value = "",
+          }
+        },
+      });
+    }
+
     wlr_log(WLR_INFO, "Unhandled platform message: channel: %s %s", engine_message->channel, method_name);
     goto error;
   }
@@ -286,6 +314,7 @@ bool fwr_instance_create(struct fwr_instance_opts opts, struct fwr_instance **in
     return false;
 	}
   wlr_log(WLR_INFO, "Wayland socket: %s", socket);
+  instance->wl_socket = socket;
 
   if (!wlr_backend_start(instance->backend)) {
 		wlr_backend_destroy(instance->backend);

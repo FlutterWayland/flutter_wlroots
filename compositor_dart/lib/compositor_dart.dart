@@ -32,6 +32,12 @@ class Surface {
   });
 }
 
+class CompositorSockets {
+  CompositorSockets({required this.wayland, required this.x});
+  final String wayland;
+  final String x;
+}
+
 class _CompositorPlatform {
   final MethodChannel channel = const MethodChannel("wlroots");
 
@@ -73,6 +79,14 @@ class _CompositorPlatform {
         status.index,
         timestamp.inMicroseconds,
       ],
+    );
+  }
+
+  Future<CompositorSockets?> getSocketPaths() async {
+    var response = await channel.invokeMethod("get_socket_paths") as Map<String, String>;
+    return CompositorSockets(
+      wayland: response["wayland"]!,
+      x: response["x"]!,
     );
   }
 }

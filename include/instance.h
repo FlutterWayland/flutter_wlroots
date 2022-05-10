@@ -24,6 +24,8 @@ struct fwr_instance {
   struct wlr_allocator *allocator;
   struct wlr_presentation *presentation;
 
+  const char *wl_socket;
+
   struct wlr_xdg_shell *xdg_shell;
   struct wl_listener new_xdg_surface;
 
