@@ -197,6 +197,7 @@ static void engine_cb_platform_message(
           }
         },
       });
+      return;
     }
 
     wlr_log(WLR_INFO, "Unhandled platform message: channel: %s %s", engine_message->channel, method_name);
