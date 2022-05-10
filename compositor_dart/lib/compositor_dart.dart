@@ -83,10 +83,10 @@ class _CompositorPlatform {
   }
 
   Future<CompositorSockets> getSocketPaths() async {
-    var response = await channel.invokeMethod("get_socket_paths") as Map<String, String>;
+    var response = await channel.invokeMethod("get_socket_paths") as Map<dynamic, dynamic>;
     return CompositorSockets(
-      wayland: response["wayland"]!,
-      x: response["x"]!,
+      wayland: response["wayland"] as String,
+      x: response["x"] as String,
     );
   }
 }
