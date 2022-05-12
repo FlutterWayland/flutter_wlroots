@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// This class represents a single client of a keyboard.
 /// It enables the keyboard to perform actions on the text content of the client
 /// text field.
 class KeyboardClientController extends ValueNotifier<TextEditingValue> {
   final int connectionId;
+  final String textInputType;
 
   KeyboardClientController({
     required this.connectionId,
     value = TextEditingValue.empty,
+    this.textInputType = "TextInputType.text",
   }) : super(value);
 
   /// The current string the user is editing.

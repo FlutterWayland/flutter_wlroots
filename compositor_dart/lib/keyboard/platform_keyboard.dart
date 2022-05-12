@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:compositor_dart/keyboard/keyboard_client_controller.dart';
-import 'package:compositor_dart/keyboard/keyboard_controller.dart';
 import 'package:compositor_dart/platform/interceptor_binary_messenger.dart';
 import 'package:compositor_dart/platform/interceptor_widgets_binding.dart';
 import 'package:flutter/services.dart';
@@ -98,6 +97,7 @@ class PlatformKeyboard {
         // arg: [client_id, https://api.flutter.dev/flutter/services/TextInputConfiguration-class.html]
         _keyboardClient = KeyboardClientController(
           connectionId: methodCall.arguments[0] as int,
+          textInputType: (methodCall.arguments[1] as Map)['inputType']['name'] as String,
         );
         _keyboardClient?.addListener(_onKeyboardClientValueChanged);
         _keyboardCallbacks?.setClient(_keyboardClient);
