@@ -28,6 +28,34 @@ class PlatformKeyboard {
   bool _shown = false;
   PlatformKeyboardCallbacks? _keyboardCallbacks;
 
+  PlatformKeyboardCallbacks? get keyboardCallbacks => _keyboardCallbacks;
+  set keyboardCallbacks(PlatformKeyboardCallbacks? callbacks) {
+    if (_keyboardCallbacks != null) {
+      if (_shown) _keyboardCallbacks!.setShown(false);
+      if (_keyboardClient != null) _keyboardCallbacks!.setClient(null);
+    }
+
+    if (callbacks != null) {
+      if (_keyboardClient != null) callbacks.setClient(_keyboardClient);
+      if (_shown) callbacks.setShown(true);
+    }
+
+    _keyboardCallbacks = callbacks;
+  }
+
+  bool _forwardHardwareKeyboard = false;
+
+  bool get forwardHardwareKeyboard => _forwardHardwareKeyboard;
+  set forwardHardwareKeyboard(bool value) {
+    if (!_forwardHardwareKeyboard && value) {
+      HardwareKeyboard.instance.addHandler(_handleHardwareKeyboardEvent);
+    }
+    if (_forwardHardwareKeyboard && !value) {
+      HardwareKeyboard.instance.removeHandler(_handleHardwareKeyboardEvent);
+    }
+    _forwardHardwareKeyboard = value;
+  }
+
   PlatformKeyboard() {
     assert(!_initialized, "TextEditPlatform can only be initialized per flutter instance.");
     _initialized = true;
@@ -46,24 +74,29 @@ class PlatformKeyboard {
     _initialized = false;
   }
 
-  void setCallbacks(PlatformKeyboardCallbacks? callbacks) {
-    if (_keyboardCallbacks != null) {
-      if (_shown) _keyboardCallbacks!.setShown(false);
-      if (_keyboardClient != null) _keyboardCallbacks!.setClient(null);
-    }
+  bool _handleHardwareKeyboardEvent(KeyEvent event) {
+    // If we have a client...
+    if (_keyboardClient != null) {
+      bool shouldAdd = event is KeyDownEvent || event is KeyRepeatEvent;
 
-    if (callbacks != null) {
-      if (_keyboardClient != null) callbacks.setClient(_keyboardClient);
-      if (_shown) callbacks.setShown(true);
-    }
+      // and the event will add a character...
+      if (event.character != null && shouldAdd) {
+        // we forward it to the client and return true for "event handled"
+        _keyboardClient!.addText(event.character!);
+        return true;
+      }
 
-    _keyboardCallbacks = callbacks;
+      // TODO other kinds of keys?
+      //if (event.logicalKey == LogicalKeyboardKey.backspace && shouldAdd) {
+      //  _keyboardClient!.deleteOne();
+      //  return true;
+      //}
+    }
+    return false;
   }
 
   Future<ByteData?> _handleTextInputMessage(ByteData? data) async {
     var methodCall = _codec.decodeMethodCall(data);
-
-    print("${methodCall.method}: ${methodCall.arguments}");
 
     switch (methodCall.method) {
       case 'TextInput.show':
@@ -98,11 +131,14 @@ class PlatformKeyboard {
         // arg: [client_id, https://api.flutter.dev/flutter/services/TextInputConfiguration-class.html]
         _keyboardClient = KeyboardClientController(
           connectionId: methodCall.arguments[0] as int,
+          platformKeyboard: this,
         );
         _keyboardClient?.addListener(_onKeyboardClientValueChanged);
         _keyboardCallbacks?.setClient(_keyboardClient);
         return _codec.encodeSuccessEnvelope(null);
     }
+
+    print("unhandled IME message: ${methodCall.method}: ${methodCall.arguments}");
 
     return null;
   }
@@ -130,10 +166,13 @@ class PlatformKeyboardWidget extends StatefulWidget {
 
   final PlatformKeyboardCallbacks? callbacks;
 
+  final bool forwardHardwareKeyboard;
+
   const PlatformKeyboardWidget({
     Key? key,
     required this.child,
     this.callbacks,
+    this.forwardHardwareKeyboard = true,
   }) : super(key: key);
 
   @override
@@ -148,14 +187,18 @@ class _PlatformKeyboardState extends State<PlatformKeyboardWidget> {
   @override
   void initState() {
     super.initState();
-    controller.setCallbacks(widget.callbacks);
+    controller.keyboardCallbacks = widget.callbacks;
+    controller.forwardHardwareKeyboard = widget.forwardHardwareKeyboard;
   }
 
   @override
   void didUpdateWidget(PlatformKeyboardWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.callbacks != widget.callbacks) {
-      controller.setCallbacks(widget.callbacks);
+      controller.keyboardCallbacks = widget.callbacks;
+    }
+    if (oldWidget.forwardHardwareKeyboard != widget.forwardHardwareKeyboard) {
+      controller.forwardHardwareKeyboard = widget.forwardHardwareKeyboard;
     }
   }
 

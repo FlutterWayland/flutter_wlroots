@@ -1,3 +1,4 @@
+import 'package:compositor_dart/keyboard/platform_keyboard.dart';
 import 'package:flutter/material.dart';
 
 /// This class represents a single client of a keyboard.
@@ -6,10 +7,14 @@ import 'package:flutter/material.dart';
 class KeyboardClientController extends ValueNotifier<TextEditingValue> {
   final int connectionId;
 
+  final PlatformKeyboard _platformKeyboard;
+
   KeyboardClientController({
     required this.connectionId,
+    required PlatformKeyboard platformKeyboard,
     value = TextEditingValue.empty,
-  }) : super(value);
+  })  : _platformKeyboard = platformKeyboard,
+        super(value);
 
   /// The current string the user is editing.
   String get text => value.text;
@@ -111,18 +116,33 @@ class KeyboardClientController extends ValueNotifier<TextEditingValue> {
     // Cursor at start, do nothing.
     if (selection.baseOffset == 0 && selection.extentOffset == 0) return;
 
-    String newText;
-
     if (selection.baseOffset == selection.extentOffset) {
       // There is no selection.
+
       var chars = CharacterRange.at(text, selection.baseOffset);
+
+      // Delete a single grapheme cluster.
       chars.moveBack();
-      chars.replaceRange(Characters.empty);
-      newText = chars.source.string;
+      chars = chars.replaceRange(Characters.empty);
+
+      value = TextEditingValue(
+        text: chars.source.string,
+        selection: selection.copyWith(
+          baseOffset: chars.stringBeforeLength,
+          extentOffset: chars.stringBeforeLength,
+        ),
+      );
     } else {
       // There IS a selection. Delete that.
-      newText = selection.textBefore(text) + selection.textAfter(text);
+      deleteSelection();
     }
+  }
+
+  void deleteSelection() {
+    // No selection, do nothing.
+    if (selection.baseOffset == selection.extentOffset) return;
+
+    var newText = selection.textBefore(text) + selection.textAfter(text);
 
     value = TextEditingValue(
       text: newText,
@@ -141,5 +161,9 @@ class KeyboardClientController extends ValueNotifier<TextEditingValue> {
         extentOffset: selection.baseOffset + insertText.length,
       ),
     );
+  }
+
+  void sendPerformAction(TextInputAction action) {
+    _platformKeyboard.sendPerformAction(connectionId, action);
   }
 }
