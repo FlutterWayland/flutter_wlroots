@@ -132,6 +132,7 @@ class PlatformKeyboard {
         _keyboardClient = KeyboardClientController(
           connectionId: methodCall.arguments[0] as int,
           platformKeyboard: this,
+          inputConfiguration: _textInputConfigurationFromJson(methodCall.arguments[1]),
         );
         _keyboardClient?.addListener(_onKeyboardClientValueChanged);
         _keyboardCallbacks?.setClient(_keyboardClient);
@@ -206,4 +207,114 @@ class _PlatformKeyboardState extends State<PlatformKeyboardWidget> {
   Widget build(BuildContext context) {
     return widget.child;
   }
+}
+
+TextInputType _textInputTypeFromJson(Map<String, dynamic> json) {
+  switch (json["name"]) {
+    case 'TextInputType.text':
+      return TextInputType.text;
+    case 'TextInputType.multiline':
+      return TextInputType.multiline;
+    case 'TextInputType.number':
+      return TextInputType.numberWithOptions(
+        signed: json["signed"] == true,
+        decimal: json["decimal"] == true,
+      );
+    case 'TextInputType.phone':
+      return TextInputType.phone;
+    case 'TextInputType.datetime':
+      return TextInputType.datetime;
+    case 'TextInputType.emailAddress':
+      return TextInputType.emailAddress;
+    case 'TextInputType.url':
+      return TextInputType.url;
+    case 'TextInputType.visiblePassword':
+      return TextInputType.visiblePassword;
+    case 'TextInputType.name':
+      return TextInputType.name;
+    case 'TextInputType.address':
+      return TextInputType.streetAddress;
+    case 'TextInputType.none':
+      return TextInputType.none;
+  }
+  throw "expected serialization of TextInputType, got $json";
+}
+
+TextInputAction _textInputActionFromJson(dynamic json) {
+  switch (json) {
+    case 'TextInputAction.none':
+      return TextInputAction.none;
+    case 'TextInputAction.unspecified':
+      return TextInputAction.unspecified;
+    case 'TextInputAction.done':
+      return TextInputAction.done;
+    case 'TextInputAction.go':
+      return TextInputAction.go;
+    case 'TextInputAction.search':
+      return TextInputAction.search;
+    case 'TextInputAction.send':
+      return TextInputAction.send;
+    case 'TextInputAction.next':
+      return TextInputAction.next;
+    case 'TextInputAction.previous':
+      return TextInputAction.previous;
+    case 'TextInputAction.continueAction':
+      return TextInputAction.continueAction;
+    case 'TextInputAction.join':
+      return TextInputAction.join;
+    case 'TextInputAction.route':
+      return TextInputAction.route;
+    case 'TextInputAction.emergencyCall':
+      return TextInputAction.emergencyCall;
+    case 'TextInputAction.newline':
+      return TextInputAction.newline;
+    default:
+      throw "expected stringification of TextInputAction, got $json";
+  }
+}
+
+TextCapitalization _textCapitalizationFromJson(dynamic json) {
+  switch (json) {
+    case 'TextCapitalization.words':
+      return TextCapitalization.words;
+    case 'TextCapitalization.sentences':
+      return TextCapitalization.sentences;
+    case 'TextCapitalization.characters':
+      return TextCapitalization.characters;
+    case 'TextCapitalization.none':
+      return TextCapitalization.none;
+    default:
+      throw "expected stringification of TextCapitalization, got $json";
+  }
+}
+
+Brightness _brightnessFromJson(dynamic json) {
+  switch (json) {
+    case 'Brightness.dark':
+      return Brightness.dark;
+    case 'Brightness.light':
+      return Brightness.light;
+    default:
+      throw "expected stringification of Brightness, got $json";
+  }
+}
+
+TextInputConfiguration _textInputConfigurationFromJson(Map<String, dynamic> json) {
+  return TextInputConfiguration(
+    inputType: _textInputTypeFromJson(json["inputType"]),
+    readOnly: json["readOnly"] == true,
+    obscureText: json["obscureText"] == true,
+    autocorrect: json["autocorrect"] == true,
+    // TODO: smartDashesType
+    // TODO: smartQuotesType
+    enableSuggestions: json["enableSuggestions"] == true,
+    actionLabel: json["actionLabel"] as String?,
+    inputAction: _textInputActionFromJson(json["inputAction"]),
+    textCapitalization: _textCapitalizationFromJson(json["textCapitalization"]),
+    keyboardAppearance: _brightnessFromJson(json["keyboardAppearance"]),
+    enableIMEPersonalizedLearning: json["enableIMEPersonalizedLearning"] == true,
+    // TODO
+    autofillConfiguration: AutofillConfiguration.disabled,
+    enableDeltaModel: json["enableDeltaModel"] == true,
+  );
 }

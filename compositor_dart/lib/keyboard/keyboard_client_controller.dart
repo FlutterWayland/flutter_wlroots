@@ -1,5 +1,6 @@
 import 'package:compositor_dart/keyboard/platform_keyboard.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// This class represents a single client of a keyboard.
 /// It enables the keyboard to perform actions on the text content of the client
@@ -7,11 +8,14 @@ import 'package:flutter/material.dart';
 class KeyboardClientController extends ValueNotifier<TextEditingValue> {
   final int connectionId;
 
+  final TextInputConfiguration inputConfiguration;
+
   final PlatformKeyboard _platformKeyboard;
 
   KeyboardClientController({
     required this.connectionId,
     required PlatformKeyboard platformKeyboard,
+    required this.inputConfiguration,
     value = TextEditingValue.empty,
   })  : _platformKeyboard = platformKeyboard,
         super(value);
@@ -109,10 +113,10 @@ class KeyboardClientController extends ValueNotifier<TextEditingValue> {
     return selection.start >= value.composing.start && selection.end <= value.composing.end;
   }
 
-  /// Deletes one character according to common text cursor semantics:
+  /// Performs a backspace action according to common text cursor semantics:
   /// * If a region is selected, it will be deleted.
   /// * If the cursor has a preceeding character, it will be deleted.
-  void deleteOne() {
+  void backspace() {
     // Cursor at start, do nothing.
     if (selection.baseOffset == 0 && selection.extentOffset == 0) return;
 
