@@ -107,7 +107,7 @@ static void on_server_cursor_button(struct wl_listener *listener, void *data) {
 
   uint32_t fl_button = uapi_mouse_button_to_flutter(event->button);
   if (fl_button != 0) {
-    uint32_t mask = 1 << (fl_button - 1);
+    uint32_t mask = 1 << fl_button;
     if (event->state == WLR_BUTTON_PRESSED) {
       instance->input.acc_mouse_button_mask |= mask;
     } else if (event->state == WLR_BUTTON_RELEASED) {
