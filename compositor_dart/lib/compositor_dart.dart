@@ -1,3 +1,4 @@
+// ignore_for_file: public_member_api_docs, sort_constructors_first
 library compositor_dart;
 
 import 'dart:async';
@@ -21,15 +22,33 @@ class Surface {
   final int gid;
   final int uid;
 
-  final Compositor compositor;
-
   Surface({
     required this.handle,
     required this.pid,
     required this.gid,
     required this.uid,
-    required this.compositor,
   });
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+
+    return other is Surface &&
+        other.handle == handle &&
+        other.pid == pid &&
+        other.gid == gid &&
+        other.uid == uid;
+  }
+
+  @override
+  int get hashCode {
+    return handle.hashCode ^ pid.hashCode ^ gid.hashCode ^ uid.hashCode;
+  }
+
+  @override
+  String toString() {
+    return 'Surface(handle: $handle, pid: $pid, gid: $gid, uid: $uid)';
+  }
 }
 
 class _CompositorPlatform {
@@ -81,8 +100,6 @@ class _CompositorPlatform {
   }
 }
 
-final Compositor compositor = Compositor();
-
 class Compositor {
   static void initLogger() {
     FlutterError.onError = (FlutterErrorDetails details) {
@@ -111,17 +128,19 @@ class Compositor {
         pid: call.arguments["client_pid"],
         gid: call.arguments["client_gid"],
         uid: call.arguments["client_uid"],
-        compositor: this,
       );
-      surfaces[surface.handle] = surface;
+      surfaces.putIfAbsent(surface.handle, () => surface);
+
       surfaceMapped.add(surface);
     });
 
     platform.addHandler("surface_unmap", (call) async {
       int handle = call.arguments["handle"];
-      Surface surface = surfaces[handle]!;
-      surfaces.remove(handle);
-      surfaceUnmapped.add(surface);
+      if (surfaces.containsKey(handle)) {
+        Surface surface = surfaces[handle]!;
+        surfaces.remove(handle);
+        surfaceUnmapped.add(surface);
+      }
     });
 
     platform.addHandler("flutter/keyevent", (call) async {});

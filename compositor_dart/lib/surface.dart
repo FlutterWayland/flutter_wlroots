@@ -23,7 +23,7 @@ class _MeasureSizeRenderObject extends RenderProxyBox {
     if (oldSize == newSize) return;
 
     oldSize = newSize;
-    WidgetsBinding.instance?.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       onChange(newSize);
     });
   }
@@ -46,8 +46,13 @@ class _MeasureSize extends SingleChildRenderObjectWidget {
 
 class SurfaceView extends StatefulWidget {
   final Surface surface;
+  final Compositor compositor;
 
-  const SurfaceView({Key? key, required this.surface}) : super(key: key);
+  const SurfaceView({
+    Key? key,
+    required this.surface,
+    required this.compositor,
+  }) : super(key: key);
 
   @override
   State<StatefulWidget> createState() {
@@ -61,7 +66,10 @@ class _SurfaceViewState extends State<SurfaceView> {
   @override
   void initState() {
     super.initState();
-    controller = _CompositorPlatformViewController(surface: widget.surface);
+    controller = _CompositorPlatformViewController(
+      surface: widget.surface,
+      compositor: widget.compositor,
+    );
   }
 
   @override
@@ -69,7 +77,10 @@ class _SurfaceViewState extends State<SurfaceView> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.surface != widget.surface) {
       controller.dispose();
-      controller = _CompositorPlatformViewController(surface: widget.surface);
+      controller = _CompositorPlatformViewController(
+        surface: widget.surface,
+        compositor: widget.compositor,
+      );
     }
   }
 
@@ -90,7 +101,7 @@ class _SurfaceViewState extends State<SurfaceView> {
           int? keycode = physicalToXkbMap[event.physicalKey.usbHidUsage];
 
           if (keycode != null) {
-            compositor.platform.surfaceSendKey(
+            widget.compositor.platform.surfaceSendKey(
               widget.surface,
               keycode,
               status,
@@ -120,10 +131,14 @@ class _SurfaceViewState extends State<SurfaceView> {
 }
 
 class _CompositorPlatformViewController extends PlatformViewController {
-  Surface surface;
+  final Surface surface;
+  final Compositor compositor;
   Size size = const Size(100, 100);
 
-  _CompositorPlatformViewController({required this.surface});
+  _CompositorPlatformViewController({
+    required this.surface,
+    required this.compositor,
+  });
 
   void setSize(Size size) {
     this.size = size;

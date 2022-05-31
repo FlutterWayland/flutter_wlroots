@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:math';
 
 import 'package:compositor_dart/compositor_dart.dart';
 import 'package:compositor_dart/surface.dart';
@@ -54,45 +54,35 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-  Compositor compositor = Compositor();
-  Surface? surface;
+  late Compositor compositor;
+  Map<int, Surface> surfaces = {};
 
-  _MyHomePageState() {
-    compositor.surfaceMapped.stream.listen((event) {
+  int? focusedSurface;
+
+  @override
+  void initState() {
+    super.initState();
+    compositor = Compositor();
+    compositor.surfaceMapped.stream.listen((Surface event) {
       setState(() {
-        surface = event;
+        surfaces.putIfAbsent(event.handle, () => event);
+        focusedSurface = event.handle;
       });
     });
-    compositor.surfaceUnmapped.stream.listen((event) {
-      if (surface == event) {
-        setState(() {
-          surface = null;
-        });
-      }
-    });
-  }
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+    compositor.surfaceUnmapped.stream.listen((Surface event) {
+      setState(() {
+        surfaces.removeWhere((key, value) => key == event.handle);
+        if (surfaces.isNotEmpty) {
+          focusedSurface = surfaces.keys.last;
+        } else {
+          focusedSurface = null;
+        }
+      });
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    Widget? surfaceView;
-    if (surface != null) {
-      surfaceView = SurfaceView(
-        surface: surface!,
-      );
-    }
-
     // This method is rerun every time setState is called, for instance as done
     // by the _incrementCounter method above.
     //
@@ -103,9 +93,9 @@ class _MyHomePageState extends State<MyHomePage> {
       onKeyEvent: (node, KeyEvent event) {
         int? keycode = compositor.keyToXkb(event.physicalKey.usbHidUsage);
 
-        if (keycode != null && surface != null) {
+        if (keycode != null && focusedSurface != null) {
           compositor.platform.surfaceSendKey(
-              surface!,
+              surfaces[focusedSurface]!,
               keycode,
               event is KeyDownEvent ? KeyStatus.pressed : KeyStatus.released,
               event.timeStamp);
@@ -122,7 +112,7 @@ class _MyHomePageState extends State<MyHomePage> {
         body: Center(
           // Center is a layout widget. It takes a single child and positions it
           // in the middle of the parent.
-          child: Column(
+          child: Row(
             // Column is also a layout widget. It takes a list of children and
             // arranges them vertically. By default, it sizes itself to fit its
             // children horizontally, and tries to be as tall as its parent.
@@ -138,27 +128,22 @@ class _MyHomePageState extends State<MyHomePage> {
             // axis because Columns are vertical (the cross axis would be
             // horizontal).
             mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              const Text(
-                'You have pushed the button this many timesa:',
-              ),
-              Text(
-                '$_counter',
-                style: Theme.of(context).textTheme.headline4,
-              ),
-              Container(
-                color: Colors.amber,
-                padding: const EdgeInsets.all(8.0),
-                child: SizedBox(width: 500, height: 500, child: surfaceView),
-              ),
-            ],
+            children: surfaces.entries
+                .map((MapEntry<int, Surface> entry) => Container(
+                      color: Colors
+                          .primaries[Random().nextInt(Colors.primaries.length)],
+                      child: SizedBox(
+                        width: 500,
+                        height: 500,
+                        child: SurfaceView(
+                          surface: entry.value,
+                          compositor: compositor,
+                        ),
+                      ),
+                    ))
+                .toList(),
           ),
         ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: _incrementCounter,
-          tooltip: 'Increment',
-          child: const Icon(Icons.add),
-        ), // This trailing comma makes auto-formatting nicer for build methods.
       ),
     );
   }
