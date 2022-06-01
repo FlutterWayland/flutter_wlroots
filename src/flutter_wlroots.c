@@ -162,6 +162,10 @@ static void engine_cb_platform_message(
       fwr_handle_surface_toplevel_set_size(instance, engine_message->response_handle, &args);
       return;
     }
+    if (strcmp(method_name, "surface_focus_from_handle") == 0) {
+      fwr_handle_surface_focus(instance, engine_message->response_handle, &args) ;
+      return;
+    }
 
     if (strcmp(method_name, "is_compositor") == 0) {
       // Just send a success response.

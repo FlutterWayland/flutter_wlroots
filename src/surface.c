@@ -21,6 +21,7 @@ static void focus_view(struct fwr_view *view, struct wlr_surface *surface) {
 		return;
 	}
 	struct fwr_instance *instance = view->instance;
+  instance->current_focused_view = view->handle;
 	struct wlr_seat *seat = instance->seat;
 	struct wlr_surface *prev_surface = seat->keyboard_state.focused_surface;
 	if (prev_surface == surface) {
@@ -200,4 +201,36 @@ error:
   wlr_log(WLR_ERROR, "Invalid toplevel set size message");
   // Send failure
   instance->fl_proc_table.SendPlatformMessageResponse(instance->engine, handle, NULL, 0);
+}
+
+void fwr_handle_surface_focus(
+    struct fwr_instance *instance,
+    const FlutterPlatformMessageResponseHandle *handle,
+    struct dart_value *args
+){
+
+  struct surface_handle_focus_message message;
+
+   if (!decode_surface_handle_focus_message(args, &message)) {
+    goto error;
+  }
+
+  struct fwr_view *view;
+  if (!handle_map_get(instance->views, message.surface_handle, (void**) &view)) {
+    // This implies a race condition of surface removal.
+    // We return success here.
+    goto success;
+  }
+
+  focus_view(view, view->surface->surface);
+
+success:
+  instance->fl_proc_table.SendPlatformMessageResponse(instance->engine, handle, method_call_null_success, sizeof(method_call_null_success));
+  return;
+  
+error:
+  wlr_log(WLR_ERROR, "Invalid toplevel set size message");
+  // Send failure
+  instance->fl_proc_table.SendPlatformMessageResponse(instance->engine, handle, NULL, 0);
+
 }

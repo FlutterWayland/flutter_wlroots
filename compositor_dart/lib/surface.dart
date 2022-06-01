@@ -47,11 +47,13 @@ class _MeasureSize extends SingleChildRenderObjectWidget {
 class SurfaceView extends StatefulWidget {
   final Surface surface;
   final Compositor compositor;
+  final Function(Surface surface)? onPointerClick;
 
   const SurfaceView({
     Key? key,
     required this.surface,
     required this.compositor,
+    this.onPointerClick,
   }) : super(key: key);
 
   @override
@@ -69,6 +71,7 @@ class _SurfaceViewState extends State<SurfaceView> {
     controller = _CompositorPlatformViewController(
       surface: widget.surface,
       compositor: widget.compositor,
+      onPointerClick: widget.onPointerClick,
     );
   }
 
@@ -80,6 +83,7 @@ class _SurfaceViewState extends State<SurfaceView> {
       controller = _CompositorPlatformViewController(
         surface: widget.surface,
         compositor: widget.compositor,
+        onPointerClick: widget.onPointerClick,
       );
     }
   }
@@ -133,11 +137,13 @@ class _SurfaceViewState extends State<SurfaceView> {
 class _CompositorPlatformViewController extends PlatformViewController {
   final Surface surface;
   final Compositor compositor;
+  final Function(Surface surface)? onPointerClick;
   Size size = const Size(100, 100);
 
   _CompositorPlatformViewController({
     required this.surface,
     required this.compositor,
+    this.onPointerClick,
   });
 
   void setSize(Size size) {
@@ -170,6 +176,9 @@ class _CompositorPlatformViewController extends PlatformViewController {
     Offset scrollAmount = Offset.zero;
     if (event is PointerDownEvent) {
       eventType = pointerDownEvent;
+      if (onPointerClick != null) {
+        onPointerClick!(surface);
+      }
     } else if (event is PointerUpEvent) {
       eventType = pointerUpEvent;
     } else if (event is PointerHoverEvent) {

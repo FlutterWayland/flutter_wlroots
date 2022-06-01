@@ -98,6 +98,10 @@ class _CompositorPlatform {
       ],
     );
   }
+
+  Future<void> surfaceFocusViewWithHandle(int handle) async {
+    await channel.invokeMethod("surface_focus_from_handle", [handle]);
+  }
 }
 
 class Compositor {

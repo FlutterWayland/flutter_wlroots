@@ -35,3 +35,9 @@ struct surface_keyboard_key_message {
 };
 
 bool decode_surface_keyboard_key_message(struct dart_value *value, struct surface_keyboard_key_message *out);
+
+struct surface_handle_focus_message {
+    uint32_t surface_handle;
+};
+
+bool decode_surface_handle_focus_message(struct dart_value *value, struct surface_handle_focus_message *out);

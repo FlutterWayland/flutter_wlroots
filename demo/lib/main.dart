@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:compositor_dart/compositor_dart.dart';
 import 'package:compositor_dart/surface.dart';
 import 'package:flutter/material.dart';
@@ -81,6 +79,13 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  void focusView(int handle) {
+    if (focusedSurface != handle) {
+      compositor.platform.surfaceFocusViewWithHandle(handle);
+      focusedSurface = handle;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // This method is rerun every time setState is called, for instance as done
@@ -129,16 +134,19 @@ class _MyHomePageState extends State<MyHomePage> {
             // horizontal).
             mainAxisAlignment: MainAxisAlignment.center,
             children: surfaces.entries
-                .map((MapEntry<int, Surface> entry) => Container(
-                      color: Colors
-                          .primaries[Random().nextInt(Colors.primaries.length)],
+                .map((MapEntry<int, Surface> entry) => GestureDetector(
+                      onTap: () {
+                        focusView(entry.key);
+                      },
                       child: SizedBox(
-                        width: 500,
+                        width: 400,
                         height: 500,
                         child: SurfaceView(
-                          surface: entry.value,
-                          compositor: compositor,
-                        ),
+                            surface: entry.value,
+                            compositor: compositor,
+                            onPointerClick: (Surface surface) {
+                              focusView(surface.handle);
+                            }),
                       ),
                     ))
                 .toList(),
