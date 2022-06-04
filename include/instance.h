@@ -91,6 +91,8 @@ struct fwr_view {
 
   struct fwr_instance *instance;
   struct wlr_xdg_surface *surface;
+  uint32_t parent_handle;
+  bool is_popup;
 
   struct wl_listener map;
   struct wl_listener unmap;

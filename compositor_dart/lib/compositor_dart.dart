@@ -21,12 +21,16 @@ class Surface {
   final int pid;
   final int gid;
   final int uid;
+  final bool isPopup;
+  final int parentHandle;
 
   Surface({
     required this.handle,
     required this.pid,
     required this.gid,
     required this.uid,
+    required this.isPopup,
+    required this.parentHandle,
   });
 
   @override
@@ -37,17 +41,24 @@ class Surface {
         other.handle == handle &&
         other.pid == pid &&
         other.gid == gid &&
-        other.uid == uid;
+        other.uid == uid &&
+        other.isPopup == isPopup &&
+        other.parentHandle == parentHandle;
   }
 
   @override
   int get hashCode {
-    return handle.hashCode ^ pid.hashCode ^ gid.hashCode ^ uid.hashCode;
+    return handle.hashCode ^
+        pid.hashCode ^
+        gid.hashCode ^
+        uid.hashCode ^
+        isPopup.hashCode ^
+        parentHandle.hashCode;
   }
 
   @override
   String toString() {
-    return 'Surface(handle: $handle, pid: $pid, gid: $gid, uid: $uid)';
+    return 'Surface(handle: $handle, pid: $pid, gid: $gid, uid: $uid, isPopup: $isPopup, parentHandle: $parentHandle)';
   }
 }
 
@@ -132,6 +143,8 @@ class Compositor {
         pid: call.arguments["client_pid"],
         gid: call.arguments["client_gid"],
         uid: call.arguments["client_uid"],
+        isPopup: call.arguments["is_popup"],
+        parentHandle: call.arguments["parent_handle"],
       );
       surfaces.putIfAbsent(surface.handle, () => surface);
 

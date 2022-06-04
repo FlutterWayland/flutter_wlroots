@@ -69,7 +69,7 @@ static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
 
   msg_seg = message_builder_segment(&msg);
   struct message_builder_segment arg_seg =
-      message_builder_segment_push_map(&msg_seg, 4);
+      message_builder_segment_push_map(&msg_seg, 6);
   message_builder_segment_push_string(&arg_seg, "handle");
   wlr_log(WLR_INFO, "viewhandle %d", view->handle);
   message_builder_segment_push_int64(&arg_seg, view->handle);
@@ -79,6 +79,12 @@ static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
   message_builder_segment_push_int64(&arg_seg, uid);
   message_builder_segment_push_string(&arg_seg, "client_gid");
   message_builder_segment_push_int64(&arg_seg, gid);
+
+  message_builder_segment_push_string(&arg_seg, "is_popup");
+  message_builder_segment_push_bool(&arg_seg, view->is_popup);
+  
+  message_builder_segment_push_string(&arg_seg, "parent_handle");
+  message_builder_segment_push_int64(&arg_seg, view->parent_handle);
   message_builder_segment_finish(&arg_seg);
 
   message_builder_segment_finish(&msg_seg);
@@ -144,6 +150,7 @@ static void xdg_toplevel_unmap(struct wl_listener *listener, void *data) {
   free(msg_buf);
 
   handle_map_remove(instance->views, view->handle);
+  handle_map_remove_reverse(instance->views, view->handle);
 }
 
 static void xdg_toplevel_destroy(struct wl_listener *listener, void *data) {}
@@ -152,12 +159,20 @@ void fwr_new_xdg_surface(struct wl_listener *listener, void *data) {
   struct fwr_instance *instance =
       wl_container_of(listener, instance, new_xdg_surface);
   struct wlr_xdg_surface *xdg_surface = data;
+  struct fwr_view *view = calloc(1, sizeof(struct fwr_view));
+
+  struct wlr_xdg_surface *parent = 0;
+  uint32_t parent_handle = -1;
 
   if (xdg_surface->role == WLR_XDG_SURFACE_ROLE_POPUP) {
-    return;
+    parent = wlr_xdg_surface_from_wlr_surface(xdg_surface->popup->parent);
+    parent_handle = handle_map_find(instance->views, parent);
+    view->is_popup = true;
+    view->parent_handle = parent_handle;
+  } else {
+    view->is_popup = false;
+    view->parent_handle = -1;
   }
-
-  struct fwr_view *view = calloc(1, sizeof(struct fwr_view));
 
   view->instance = instance;
   view->surface = xdg_surface;
@@ -170,6 +185,8 @@ void fwr_new_xdg_surface(struct wl_listener *listener, void *data) {
   wl_signal_add(&xdg_surface->events.destroy, &view->destroy);
 
   uint32_t view_handle = handle_map_add(instance->views, (void *)view);
+  handle_map_add_reverse(instance->views, xdg_surface, view_handle);
+
   view->handle = view_handle;
 }
 

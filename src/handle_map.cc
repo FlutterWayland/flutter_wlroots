@@ -7,10 +7,11 @@
 struct handle_map {
     uint32_t next;
     std::map<uint32_t, void*> map;
+    std::map<void*, uint32_t> reverse_map;
 };
 
 extern "C" handle_map *handle_map_new() {
-    handle_map *map = new handle_map({1, {}});
+    handle_map *map = new handle_map({1, {}, {}});
     return map;
 }
 
@@ -42,4 +43,31 @@ extern "C" bool handle_map_get(handle_map *map, uint32_t handle, void **out) {
         *out = entry->second;
         return true;
     }
+}
+
+extern "C" void handle_map_add_reverse(handle_map *map, void* value, uint32_t handle) {
+    map->reverse_map.insert({value, handle});
+}
+
+extern "C" uint32_t handle_map_find(handle_map *map, void* value) {
+
+    auto entry = map->reverse_map.find(value);
+    if (entry == map->reverse_map.end()) {
+        return -2;
+    } else {
+        return entry->second;
+    }
+
+}
+
+extern "C" bool handle_map_remove_reverse(handle_map *map, uint32_t handle) {
+
+    for (auto it = map->reverse_map.begin(); it != map->reverse_map.end(); ++it) {
+        if (it->second == handle){
+            map->reverse_map.erase(it);
+            return true;
+        }
+    }
+
+    return false;
 }

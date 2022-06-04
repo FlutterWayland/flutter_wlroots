@@ -133,23 +133,23 @@ class _MyHomePageState extends State<MyHomePage> {
             // axis because Columns are vertical (the cross axis would be
             // horizontal).
             mainAxisAlignment: MainAxisAlignment.center,
-            children: surfaces.entries
-                .map((MapEntry<int, Surface> entry) => GestureDetector(
-                      onTap: () {
-                        focusView(entry.key);
-                      },
-                      child: SizedBox(
-                        width: 400,
-                        height: 500,
-                        child: SurfaceView(
-                            surface: entry.value,
-                            compositor: compositor,
-                            onPointerClick: (Surface surface) {
-                              focusView(surface.handle);
-                            }),
-                      ),
-                    ))
-                .toList(),
+            children: surfaces.entries.map((MapEntry<int, Surface> entry) {
+              return GestureDetector(
+                onTap: () {
+                  focusView(entry.key);
+                },
+                child: SizedBox(
+                  width: 400,
+                  height: 500,
+                  child: SurfaceView(
+                      surface: entry.value,
+                      compositor: compositor,
+                      onPointerClick: (Surface surface) {
+                        focusView(surface.handle);
+                      }),
+                ),
+              );
+            }).toList(),
           ),
         ),
       ),
