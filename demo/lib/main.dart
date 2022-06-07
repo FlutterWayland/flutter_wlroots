@@ -1,5 +1,8 @@
 import 'package:compositor_dart/compositor_dart.dart';
 import 'package:compositor_dart/surface.dart';
+import 'package:demo/constants.dart';
+import 'package:demo/window.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -56,10 +59,16 @@ class _MyHomePageState extends State<MyHomePage> {
   Map<int, Surface> surfaces = {};
 
   int? focusedSurface;
+  late double mousePositionX;
+  late double mousePositionY;
 
   @override
   void initState() {
     super.initState();
+
+    mousePositionX = 0;
+    mousePositionY = 0;
+
     compositor = Compositor();
     compositor.surfaceMapped.stream.listen((Surface event) {
       setState(() {
@@ -88,12 +97,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Focus(
       onKeyEvent: (node, KeyEvent event) {
         int? keycode = compositor.keyToXkb(event.physicalKey.usbHidUsage);
@@ -110,46 +113,36 @@ class _MyHomePageState extends State<MyHomePage> {
       autofocus: true,
       child: Scaffold(
         appBar: AppBar(
-          // Here we take the value from the MyHomePage object that was created by
-          // the App.build method, and use it to set our appbar title.
           title: Text(widget.title),
         ),
-        body: Center(
-          // Center is a layout widget. It takes a single child and positions it
-          // in the middle of the parent.
-          child: Row(
-            // Column is also a layout widget. It takes a list of children and
-            // arranges them vertically. By default, it sizes itself to fit its
-            // children horizontally, and tries to be as tall as its parent.
-            //
-            // Invoke "debug painting" (press "p" in the console, choose the
-            // "Toggle Debug Paint" action from the Flutter Inspector in Android
-            // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-            // to see the wireframe for each widget.
-            //
-            // Column has various properties to control how it sizes itself and
-            // how it positions its children. Here we use mainAxisAlignment to
-            // center the children vertically; the main axis here is the vertical
-            // axis because Columns are vertical (the cross axis would be
-            // horizontal).
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: surfaces.entries.map((MapEntry<int, Surface> entry) {
-              return GestureDetector(
-                onTap: () {
-                  focusView(entry.key);
-                },
-                child: SizedBox(
-                  width: 400,
-                  height: 500,
-                  child: SurfaceView(
-                      surface: entry.value,
-                      compositor: compositor,
-                      onPointerClick: (Surface surface) {
-                        focusView(surface.handle);
-                      }),
-                ),
-              );
-            }).toList(),
+        body: SizedBox.expand(
+          child: MouseRegion(
+            onHover: (PointerHoverEvent event) {
+              mousePositionX = event.position.dx;
+              mousePositionY = event.position.dy;
+            },
+            child: Stack(
+              children: surfaces.entries.map((MapEntry<int, Surface> entry) {
+                final isPopup = entry.value.isPopup;
+
+                return Window(
+                  initialX: isPopup ? mousePositionX : initialPositionX,
+                  initialY: isPopup ? mousePositionY : initialPositionY,
+                  shouldDecorate: !isPopup,
+                  onTap: () => focusView(entry.key),
+                  child: SizedBox(
+                    width: windowWidth,
+                    height: windowHeight,
+                    child: SurfaceView(
+                        surface: entry.value,
+                        compositor: compositor,
+                        onPointerClick: (Surface surface) {
+                          focusView(surface.handle);
+                        }),
+                  ),
+                );
+              }).toList(),
+            ),
           ),
         ),
       ),
