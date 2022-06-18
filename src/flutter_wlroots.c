@@ -316,8 +316,22 @@ bool fwr_instance_create(struct fwr_instance_opts opts, struct fwr_instance **in
   project_args.vsync_callback = fwr_engine_vsync_callback;
 
   if (instance->fl_proc_table.RunsAOTCompiledDartCode()) {
-    wlr_log(WLR_ERROR, "TODO: AOT");
-    return false;
+    FlutterEngineAOTDataSource aot_source;
+    FlutterEngineAOTData aot_data;
+
+    aot_source = (FlutterEngineAOTDataSource) {
+          .elf_path = opts.elf_file_path,
+          .type = kFlutterEngineAOTDataSourceTypeElfPath
+    };
+
+    FlutterEngineResult engine_result = FlutterEngineCreateAOTData(&aot_source, &aot_data);
+    if (engine_result != kSuccess) {
+     wlr_log(WLR_ERROR, "Could not load AOT data. FlutterEngineCreateAOTData: %s\n");
+     return false;
+    }
+
+    project_args.aot_data = aot_data;
+
   }
 
   wlr_log(WLR_INFO, "Pre engine run");
