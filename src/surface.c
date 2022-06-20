@@ -67,9 +67,11 @@ static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
   message_builder_segment_push_string(&msg_seg, "surface_map");
   message_builder_segment_finish(&msg_seg);
 
+  struct wlr_box geometry = view->surface->current.geometry;
+
   msg_seg = message_builder_segment(&msg);
   struct message_builder_segment arg_seg =
-      message_builder_segment_push_map(&msg_seg, 6);
+      message_builder_segment_push_map(&msg_seg, 8);
   message_builder_segment_push_string(&arg_seg, "handle");
   wlr_log(WLR_INFO, "viewhandle %d", view->handle);
   message_builder_segment_push_int64(&arg_seg, view->handle);
@@ -85,8 +87,15 @@ static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
   
   message_builder_segment_push_string(&arg_seg, "parent_handle");
   message_builder_segment_push_int64(&arg_seg, view->parent_handle);
-  message_builder_segment_finish(&arg_seg);
 
+  message_builder_segment_push_string(&arg_seg, "preffered_width");
+  message_builder_segment_push_int64(&arg_seg, geometry.width);
+
+  message_builder_segment_push_string(&arg_seg, "preffered_height");
+  message_builder_segment_push_int64(&arg_seg, geometry.height);
+
+  message_builder_segment_finish(&arg_seg);
+  
   message_builder_segment_finish(&msg_seg);
   uint8_t *msg_buf;
   size_t msg_buf_len;

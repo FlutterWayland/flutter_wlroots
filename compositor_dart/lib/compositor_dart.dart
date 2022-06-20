@@ -23,6 +23,8 @@ class Surface {
   final int uid;
   final bool isPopup;
   final int parentHandle;
+  final int prefferedWidth;
+  final int prefferedHeight;
 
   Surface({
     required this.handle,
@@ -31,6 +33,8 @@ class Surface {
     required this.uid,
     required this.isPopup,
     required this.parentHandle,
+    required this.prefferedWidth,
+    required this.prefferedHeight,
   });
 
   @override
@@ -122,6 +126,8 @@ class Compositor {
         uid: call.arguments["client_uid"],
         isPopup: call.arguments["is_popup"],
         parentHandle: call.arguments["parent_handle"],
+        prefferedHeight: call.arguments['preffered_height'],
+        prefferedWidth: call.arguments['preffered_width'],
       );
       surfaces.putIfAbsent(surface.handle, () => surface);
 

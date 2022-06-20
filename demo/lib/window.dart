@@ -7,6 +7,7 @@ class Window extends StatefulWidget {
   final Widget child;
   final VoidCallback onTap;
   final bool shouldDecorate;
+  final double width;
 
   const Window({
     Key? key,
@@ -15,6 +16,7 @@ class Window extends StatefulWidget {
     required this.child,
     required this.onTap,
     this.shouldDecorate = true,
+    required this.width,
   }) : super(key: key);
 
   @override
@@ -46,7 +48,10 @@ class _WindowState extends State<Window> {
           });
         },
         child: widget.shouldDecorate
-            ? WindowDecoration(child: widget.child)
+            ? WindowDecoration(
+                width: widget.width,
+                child: widget.child,
+              )
             : widget.child,
       ),
     );

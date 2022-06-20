@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 
 class WindowDecoration extends StatelessWidget {
   final Widget child;
+  final double width;
 
   const WindowDecoration({
     Key? key,
     required this.child,
+    required this.width,
   }) : super(key: key);
 
   @override
@@ -18,7 +20,7 @@ class WindowDecoration extends StatelessWidget {
           Container(
             color: Colors.red,
             height: 30,
-            width: windowWidth,
+            width: width,
           ),
           child,
         ],

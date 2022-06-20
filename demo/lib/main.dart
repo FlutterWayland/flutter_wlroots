@@ -128,11 +128,12 @@ class _MyHomePageState extends State<MyHomePage> {
                 return Window(
                   initialX: isPopup ? mousePositionX : initialPositionX,
                   initialY: isPopup ? mousePositionY : initialPositionY,
+                  width: entry.value.prefferedWidth.toDouble(),
                   shouldDecorate: !isPopup,
                   onTap: () => focusView(entry.key),
                   child: SizedBox(
-                    width: windowWidth,
-                    height: windowHeight,
+                    width: entry.value.prefferedWidth.toDouble(),
+                    height: entry.value.prefferedHeight.toDouble(),
                     child: SurfaceView(
                         surface: entry.value,
                         compositor: compositor,
