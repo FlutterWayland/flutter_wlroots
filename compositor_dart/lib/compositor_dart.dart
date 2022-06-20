@@ -34,29 +34,6 @@ class Surface {
   });
 
   @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-
-    return other is Surface &&
-        other.handle == handle &&
-        other.pid == pid &&
-        other.gid == gid &&
-        other.uid == uid &&
-        other.isPopup == isPopup &&
-        other.parentHandle == parentHandle;
-  }
-
-  @override
-  int get hashCode {
-    return handle.hashCode ^
-        pid.hashCode ^
-        gid.hashCode ^
-        uid.hashCode ^
-        isPopup.hashCode ^
-        parentHandle.hashCode;
-  }
-
-  @override
   String toString() {
     return 'Surface(handle: $handle, pid: $pid, gid: $gid, uid: $uid, isPopup: $isPopup, parentHandle: $parentHandle)';
   }
