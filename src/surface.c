@@ -159,10 +159,15 @@ static void xdg_toplevel_unmap(struct wl_listener *listener, void *data) {
   free(msg_buf);
 
   handle_map_remove(instance->views, view->handle);
-  handle_map_remove_reverse(instance->views, view->handle);
 }
 
 static void xdg_toplevel_destroy(struct wl_listener *listener, void *data) {}
+
+void get_xdg_surface(void* fwr_view){
+  struct fwr_view *view = fwr_view;
+
+  return view->surface;
+}
 
 void fwr_new_xdg_surface(struct wl_listener *listener, void *data) {
   struct fwr_instance *instance =
@@ -175,7 +180,7 @@ void fwr_new_xdg_surface(struct wl_listener *listener, void *data) {
 
   if (xdg_surface->role == WLR_XDG_SURFACE_ROLE_POPUP) {
     parent = wlr_xdg_surface_from_wlr_surface(xdg_surface->popup->parent);
-    parent_handle = handle_map_find(instance->views, parent);
+    parent_handle = handle_map_find_handle(instance->views, get_xdg_surface);
     view->is_popup = true;
     view->parent_handle = parent_handle;
   } else {
@@ -194,7 +199,6 @@ void fwr_new_xdg_surface(struct wl_listener *listener, void *data) {
   wl_signal_add(&xdg_surface->events.destroy, &view->destroy);
 
   uint32_t view_handle = handle_map_add(instance->views, (void *)view);
-  handle_map_add_reverse(instance->views, xdg_surface, view_handle);
 
   view->handle = view_handle;
 }
