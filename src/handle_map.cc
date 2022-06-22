@@ -44,18 +44,3 @@ extern "C" bool handle_map_get(handle_map *map, uint32_t handle, void **out) {
     }
 }
 
-
-extern "C" uint32_t handle_map_find_handle(handle_map *map, void* (*get_data)(void* value)) {
-
-    int key = -2;
-
-    for(auto &it: map->map){
-        if(it.second == get_data(it.second))    {
-            key = it.first;
-            break;
-        }
-    }
-
-    return key;
-}
-
