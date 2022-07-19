@@ -12,6 +12,18 @@ import 'package:logging/logging.dart';
 
 enum KeyStatus { released, pressed }
 
+enum WindowEventType { maximize, minimize }
+
+class WindowEvent {
+  final WindowEventType windowEventType;
+  final int handle;
+
+  WindowEvent({
+    required this.windowEventType,
+    required this.handle,
+  });
+}
+
 class Surface {
   // This is actually used as a pointer on the compositor side.
   // It should always be returned exactly as is to the compositiors,
@@ -25,6 +37,7 @@ class Surface {
   final int parentHandle;
   final int prefferedWidth;
   final int prefferedHeight;
+  bool isMaximized;
 
   Surface({
     required this.handle,
@@ -35,11 +48,12 @@ class Surface {
     required this.parentHandle,
     required this.prefferedWidth,
     required this.prefferedHeight,
+    this.isMaximized = false,
   });
 
   @override
   String toString() {
-    return 'Surface(handle: $handle, pid: $pid, gid: $gid, uid: $uid, isPopup: $isPopup, parentHandle: $parentHandle)';
+    return 'Surface(handle: $handle, pid: $pid, gid: $gid, uid: $uid, isPopup: $isPopup, parentHandle: $parentHandle, isMaximized: $isMaximized)';
   }
 }
 
@@ -114,6 +128,8 @@ class Compositor {
   // Emits an event when a surface has been added and is ready to be presented on the screen.
   StreamController<Surface> surfaceMapped = StreamController.broadcast();
   StreamController<Surface> surfaceUnmapped = StreamController.broadcast();
+  StreamController<WindowEvent> maximizeWindowEvents =
+      StreamController.broadcast();
 
   int? keyToXkb(int physicalKey) => physicalToXkbMap[physicalKey];
 
@@ -144,5 +160,12 @@ class Compositor {
     });
 
     platform.addHandler("flutter/keyevent", (call) async {});
+
+    platform.addHandler('window_maximize', (call) async {
+      int handle = call.arguments['handle'];
+
+      maximizeWindowEvents.add(WindowEvent(
+          windowEventType: WindowEventType.maximize, handle: handle));
+    });
   }
 }

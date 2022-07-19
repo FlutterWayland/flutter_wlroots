@@ -18,8 +18,8 @@ class WindowDecoration extends StatelessWidget {
       child: Column(
         children: [
           Container(
-            color: Colors.red,
-            height: 30,
+            color: windowDecorationColor,
+            height: windowDecorationHeight,
             width: width,
           ),
           child,

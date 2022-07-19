@@ -86,6 +86,15 @@ class _MyHomePageState extends State<MyHomePage> {
         }
       });
     });
+
+    compositor.maximizeWindowEvents.stream.listen((WindowEvent event) {
+      if (event.windowEventType == WindowEventType.maximize) {
+        setState(() {
+          surfaces[event.handle]!.isMaximized =
+              !surfaces[event.handle]!.isMaximized;
+        });
+      }
+    });
   }
 
   void focusView(int handle) {
@@ -115,37 +124,54 @@ class _MyHomePageState extends State<MyHomePage> {
         appBar: AppBar(
           title: Text(widget.title),
         ),
-        body: SizedBox.expand(
-          child: MouseRegion(
-            onHover: (PointerHoverEvent event) {
-              mousePositionX = event.position.dx;
-              mousePositionY = event.position.dy;
-            },
-            child: Stack(
-              children: surfaces.entries.map((MapEntry<int, Surface> entry) {
-                final isPopup = entry.value.isPopup;
+        body: LayoutBuilder(builder: (context, constraints) {
+          return SizedBox.expand(
+            child: MouseRegion(
+              onHover: (PointerHoverEvent event) {
+                mousePositionX = event.position.dx;
+                mousePositionY = event.position.dy;
+              },
+              child: Stack(
+                children: surfaces.entries.map((MapEntry<int, Surface> entry) {
+                  final isPopup = entry.value.isPopup;
 
-                return Window(
-                  initialX: isPopup ? mousePositionX : initialPositionX,
-                  initialY: isPopup ? mousePositionY : initialPositionY,
-                  width: entry.value.prefferedWidth.toDouble(),
-                  shouldDecorate: !isPopup,
-                  onTap: () => focusView(entry.key),
-                  child: SizedBox(
-                    width: entry.value.prefferedWidth.toDouble(),
-                    height: entry.value.prefferedHeight.toDouble(),
-                    child: SurfaceView(
-                        surface: entry.value,
-                        compositor: compositor,
-                        onPointerClick: (Surface surface) {
-                          focusView(surface.handle);
-                        }),
-                  ),
-                );
-              }).toList(),
+                  return Window(
+                    initialX: entry.value.isMaximized
+                        ? 0
+                        : (isPopup ? mousePositionX : initialPositionX),
+                    initialY: entry.value.isMaximized
+                        ? 0
+                        : (isPopup ? mousePositionY : initialPositionY),
+                    width: entry.value.isMaximized
+                        ? constraints.maxWidth
+                        : entry.value.prefferedWidth.toDouble(),
+                    shouldDecorate: !isPopup,
+                    isMaximized: entry.value.isMaximized,
+                    onTap: () => focusView(entry.key),
+                    child: SizedBox(
+                      width: entry.value.isMaximized
+                          ? constraints.maxWidth
+                          : (entry.value.prefferedWidth != 0
+                              ? entry.value.prefferedWidth.toDouble()
+                              : 200),
+                      height: entry.value.isMaximized
+                          ? (constraints.maxHeight - windowDecorationHeight)
+                          : (entry.value.prefferedHeight != 0
+                              ? entry.value.prefferedHeight.toDouble()
+                              : 300),
+                      child: SurfaceView(
+                          surface: entry.value,
+                          compositor: compositor,
+                          onPointerClick: (Surface surface) {
+                            focusView(surface.handle);
+                          }),
+                    ),
+                  );
+                }).toList(),
+              ),
             ),
-          ),
-        ),
+          );
+        }),
       ),
     );
   }
