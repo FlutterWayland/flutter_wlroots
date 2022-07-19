@@ -38,6 +38,7 @@ class Surface {
   final int prefferedWidth;
   final int prefferedHeight;
   bool isMaximized;
+  bool isMinimized;
 
   Surface({
     required this.handle,
@@ -49,11 +50,12 @@ class Surface {
     required this.prefferedWidth,
     required this.prefferedHeight,
     this.isMaximized = false,
+    this.isMinimized = false,
   });
 
   @override
   String toString() {
-    return 'Surface(handle: $handle, pid: $pid, gid: $gid, uid: $uid, isPopup: $isPopup, parentHandle: $parentHandle, isMaximized: $isMaximized)';
+    return 'Surface(handle: $handle, pid: $pid, gid: $gid, uid: $uid, isPopup: $isPopup, parentHandle: $parentHandle, isMaximized: $isMaximized, isMinimized: $isMinimized)';
   }
 }
 
@@ -128,8 +130,7 @@ class Compositor {
   // Emits an event when a surface has been added and is ready to be presented on the screen.
   StreamController<Surface> surfaceMapped = StreamController.broadcast();
   StreamController<Surface> surfaceUnmapped = StreamController.broadcast();
-  StreamController<WindowEvent> maximizeWindowEvents =
-      StreamController.broadcast();
+  StreamController<WindowEvent> windowEvents = StreamController.broadcast();
 
   int? keyToXkb(int physicalKey) => physicalToXkbMap[physicalKey];
 
@@ -164,8 +165,15 @@ class Compositor {
     platform.addHandler('window_maximize', (call) async {
       int handle = call.arguments['handle'];
 
-      maximizeWindowEvents.add(WindowEvent(
+      windowEvents.add(WindowEvent(
           windowEventType: WindowEventType.maximize, handle: handle));
+    });
+
+    platform.addHandler('window_minimize', (call) async {
+      int handle = call.arguments['handle'];
+
+      windowEvents.add(WindowEvent(
+          windowEventType: WindowEventType.minimize, handle: handle));
     });
   }
 }

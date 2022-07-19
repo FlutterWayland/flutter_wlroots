@@ -87,11 +87,18 @@ class _MyHomePageState extends State<MyHomePage> {
       });
     });
 
-    compositor.maximizeWindowEvents.stream.listen((WindowEvent event) {
+    compositor.windowEvents.stream.listen((WindowEvent event) {
       if (event.windowEventType == WindowEventType.maximize) {
         setState(() {
           surfaces[event.handle]!.isMaximized =
               !surfaces[event.handle]!.isMaximized;
+        });
+      }
+
+      if (event.windowEventType == WindowEventType.minimize) {
+        setState(() {
+          surfaces[event.handle]!.isMinimized =
+              !surfaces[event.handle]!.isMinimized;
         });
       }
     });
@@ -132,7 +139,9 @@ class _MyHomePageState extends State<MyHomePage> {
                 mousePositionY = event.position.dy;
               },
               child: Stack(
-                children: surfaces.entries.map((MapEntry<int, Surface> entry) {
+                children: surfaces.entries
+                    .skipWhile((entry) => entry.value.isMinimized)
+                    .map((MapEntry<int, Surface> entry) {
                   final isPopup = entry.value.isPopup;
 
                   return Window(
