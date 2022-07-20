@@ -226,6 +226,8 @@ static void xdg_toplevel_request_resize(
 	struct fwr_view *view = wl_container_of(listener, view, request_resize);
   wlr_log(WLR_INFO, "request resize for view %d", view->handle);
 	// begin_interactive(view, FWR_CURSOR_RESIZE, event->edges);
+  struct fwr_instance *instance = view->instance;
+  send_window_event(instance, view->handle, "window_resize");
 }
 
 static void xdg_toplevel_request_maximize(
@@ -300,25 +302,28 @@ void fwr_new_xdg_surface(struct wl_listener *listener, void *data) {
   wl_signal_add(&xdg_surface->events.destroy, &view->destroy);
 
 
-	struct wlr_xdg_toplevel *toplevel = xdg_surface->toplevel;
-  view->request_move.notify = xdg_toplevel_request_move;
-	wl_signal_add(&toplevel->events.request_move, &view->request_move);
+  // only set window events if not pop-up, otherwise, exception for qt
+  if (xdg_surface->role != WLR_XDG_SURFACE_ROLE_POPUP) {
 
+    struct wlr_xdg_toplevel *toplevel = xdg_surface->toplevel;
+    view->request_move.notify = xdg_toplevel_request_move;
+    wl_signal_add(&toplevel->events.request_move, &view->request_move);
 
-  view->request_resize.notify = xdg_toplevel_request_resize;
-  wl_signal_add(&toplevel->events.request_resize, &view->request_resize);
+    view->request_resize.notify = xdg_toplevel_request_resize;
+    wl_signal_add(&toplevel->events.request_resize, &view->request_resize);
 
-	view->request_maximize.notify = xdg_toplevel_request_maximize;
-	wl_signal_add(&toplevel->events.request_maximize,
-		&view->request_maximize);
-	view->request_fullscreen.notify = xdg_toplevel_request_fullscreen;
-	wl_signal_add(&toplevel->events.request_fullscreen,
-		&view->request_fullscreen);
+    view->request_maximize.notify = xdg_toplevel_request_maximize;
+    wl_signal_add(&toplevel->events.request_maximize,
+      &view->request_maximize);
+    view->request_fullscreen.notify = xdg_toplevel_request_fullscreen;
+    wl_signal_add(&toplevel->events.request_fullscreen,
+      &view->request_fullscreen);
 
-  view->request_minimize.notify = xdg_toplevel_request_minimize;
-	wl_signal_add(&toplevel->events.request_minimize,
-		&view->request_minimize);
+    view->request_minimize.notify = xdg_toplevel_request_minimize;
+    wl_signal_add(&toplevel->events.request_minimize,
+      &view->request_minimize);
 
+  }
 
 
 
