@@ -68,6 +68,7 @@ static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
   message_builder_segment_finish(&msg_seg);
 
   struct wlr_box geometry = view->surface->current.geometry;
+  struct wlr_xdg_toplevel_state toplevel_state = view->xdg_toplevel->current;
 
   msg_seg = message_builder_segment(&msg);
   struct message_builder_segment arg_seg =
@@ -88,11 +89,19 @@ static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
   message_builder_segment_push_string(&arg_seg, "parent_handle");
   message_builder_segment_push_int64(&arg_seg, view->parent_handle);
 
-  message_builder_segment_push_string(&arg_seg, "preffered_width");
-  message_builder_segment_push_int64(&arg_seg, geometry.width);
+  if(view->is_popup){
+    message_builder_segment_push_string(&arg_seg, "preffered_width");
+    message_builder_segment_push_int64(&arg_seg, toplevel_state.width);
 
-  message_builder_segment_push_string(&arg_seg, "preffered_height");
-  message_builder_segment_push_int64(&arg_seg, geometry.height);
+    message_builder_segment_push_string(&arg_seg, "preffered_height");
+    message_builder_segment_push_int64(&arg_seg, toplevel_state.height);
+  } else {
+    message_builder_segment_push_string(&arg_seg, "preffered_width");
+    message_builder_segment_push_int64(&arg_seg, geometry.width);
+
+    message_builder_segment_push_string(&arg_seg, "preffered_height");
+    message_builder_segment_push_int64(&arg_seg, geometry.height);
+  }
 
   message_builder_segment_finish(&arg_seg);
   
