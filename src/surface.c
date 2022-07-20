@@ -248,6 +248,8 @@ static void xdg_toplevel_request_fullscreen(
 	struct fwr_view *view =
 		wl_container_of(listener, view, request_fullscreen);
 	wlr_xdg_surface_schedule_configure(view->xdg_toplevel->base);
+  struct fwr_instance *instance = view->instance;
+  send_window_event(instance, view->handle, "window_fullscreen");
 }
 
 static void xdg_toplevel_request_minimize(
