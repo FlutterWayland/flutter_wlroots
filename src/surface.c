@@ -209,7 +209,10 @@ static void xdg_toplevel_request_move(
 	 * provided serial against a list of button press serials sent to this
 	 * client, to prevent the client from requesting this whenever they want. */
 	struct fwr_view *view = wl_container_of(listener, view, request_move);
+  // should change cursor in wlroots
 	// begin_interactive(view, FWR_CURSOR_MOVE, 0);
+  struct fwr_instance *instance = view->instance;
+  send_window_event(instance, view->handle, "window_move");
 }
 
 static void xdg_toplevel_request_resize(
