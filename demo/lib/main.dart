@@ -154,6 +154,9 @@ class _MyHomePageState extends State<MyHomePage> {
                     width: entry.value.isMaximized
                         ? constraints.maxWidth
                         : entry.value.prefferedWidth.toDouble(),
+                    height: entry.value.isMaximized
+                        ? constraints.maxHeight
+                        : entry.value.prefferedHeight.toDouble(),
                     shouldDecorate: !isPopup,
                     isMaximized: entry.value.isMaximized,
                     onTap: () => focusView(entry.key),

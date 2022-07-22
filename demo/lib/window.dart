@@ -1,3 +1,4 @@
+import 'package:demo/constants.dart';
 import 'package:demo/window_decoration.dart';
 import 'package:flutter/material.dart';
 
@@ -8,6 +9,7 @@ class Window extends StatefulWidget {
   final VoidCallback onTap;
   final bool shouldDecorate;
   final double width;
+  final double height;
   final bool isMaximized;
 
   const Window({
@@ -18,6 +20,7 @@ class Window extends StatefulWidget {
     required this.onTap,
     this.shouldDecorate = true,
     required this.width,
+    required this.height,
     required this.isMaximized,
   }) : super(key: key);
 
@@ -51,7 +54,8 @@ class _WindowState extends State<Window> {
         },
         child: widget.shouldDecorate
             ? WindowDecoration(
-                width: widget.width,
+                width: widget.width + borderWidth * 2,
+                height: widget.height + borderWidth + windowDecorationHeight,
                 child: widget.child,
               )
             : widget.child,
