@@ -31,34 +31,100 @@ class Window extends StatefulWidget {
 class _WindowState extends State<Window> {
   late double initialX;
   late double initialY;
+  late double windowWidth;
+  late double windowHeight;
+  late bool isResizingLeft;
+  late bool isResizingRight;
+  late bool isResizingTop;
+  late bool isResizingBottom;
 
   @override
   void initState() {
     super.initState();
     initialX = widget.initialX;
     initialY = widget.initialY;
+    if (widget.shouldDecorate) {
+      windowWidth = widget.width + borderWidth * 2;
+      windowHeight = widget.height + borderWidth + windowDecorationHeight;
+    } else {
+      windowWidth = widget.width + borderWidth * 2;
+      windowHeight = widget.height + borderWidth;
+    }
+    isResizingLeft = false;
+    isResizingRight = false;
+    isResizingTop = false;
+    isResizingBottom = false;
   }
 
   @override
   Widget build(BuildContext context) {
+    final child = widget.shouldDecorate
+        ? WindowDecoration(
+            width: windowWidth + borderWidth * 2,
+            height: windowHeight + borderWidth + windowDecorationHeight,
+            child: widget.child,
+          )
+        : widget.child;
+
     return Positioned(
       left: widget.isMaximized ? 0 : initialX,
       top: widget.isMaximized ? 0 : initialY,
       child: GestureDetector(
         onTap: widget.onTap,
+        onPanStart: (details) {
+          if (details.localPosition.dx <= 10) {
+            isResizingLeft = true;
+          }
+          if (details.localPosition.dx >= windowWidth - 10) {
+            isResizingRight = true;
+          }
+          if (details.localPosition.dy <= 10) {
+            isResizingTop = true;
+          }
+          if (details.localPosition.dy >= windowHeight - 10) {
+            isResizingBottom = true;
+          }
+          setState(() {});
+        },
         onPanUpdate: (DragUpdateDetails details) {
           setState(() {
-            initialX += details.delta.dx;
-            initialY += details.delta.dy;
+            if (isResizingLeft) {
+              initialX += details.delta.dx;
+              windowWidth += (-details.delta.dx);
+            }
+            if (isResizingRight) {
+              windowWidth += details.delta.dx;
+            }
+            if (isResizingTop) {
+              initialY += details.delta.dy;
+              windowHeight += (-details.delta.dy);
+            }
+            if (isResizingBottom) {
+              windowHeight += details.delta.dy;
+            }
+
+            if (!isResizingLeft &&
+                !isResizingRight &&
+                !isResizingTop &&
+                !isResizingBottom) {
+              initialX += details.delta.dx;
+              initialY += details.delta.dy;
+            }
           });
         },
-        child: widget.shouldDecorate
-            ? WindowDecoration(
-                width: widget.width + borderWidth * 2,
-                height: widget.height + borderWidth + windowDecorationHeight,
-                child: widget.child,
-              )
-            : widget.child,
+        onPanEnd: (details) {
+          setState(() {
+            isResizingLeft = false;
+            isResizingRight = false;
+            isResizingTop = false;
+            isResizingBottom = false;
+          });
+        },
+        child: SizedBox(
+          width: windowWidth,
+          height: windowHeight,
+          child: child,
+        ),
       ),
     );
   }

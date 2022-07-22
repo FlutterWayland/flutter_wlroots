@@ -160,24 +160,12 @@ class _MyHomePageState extends State<MyHomePage> {
                     shouldDecorate: !isPopup,
                     isMaximized: entry.value.isMaximized,
                     onTap: () => focusView(entry.key),
-                    child: SizedBox(
-                      width: entry.value.isMaximized
-                          ? constraints.maxWidth
-                          : (entry.value.prefferedWidth != 0
-                              ? entry.value.prefferedWidth.toDouble()
-                              : 200),
-                      height: entry.value.isMaximized
-                          ? (constraints.maxHeight - windowDecorationHeight)
-                          : (entry.value.prefferedHeight != 0
-                              ? entry.value.prefferedHeight.toDouble()
-                              : 300),
-                      child: SurfaceView(
-                          surface: entry.value,
-                          compositor: compositor,
-                          onPointerClick: (Surface surface) {
-                            focusView(surface.handle);
-                          }),
-                    ),
+                    child: SurfaceView(
+                        surface: entry.value,
+                        compositor: compositor,
+                        onPointerClick: (Surface surface) {
+                          focusView(surface.handle);
+                        }),
                   );
                 }).toList(),
               ),
