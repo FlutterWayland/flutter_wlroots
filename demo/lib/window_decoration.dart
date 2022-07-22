@@ -28,6 +28,18 @@ class WindowDecoration extends StatelessWidget {
             padding: const EdgeInsets.only(top: windowDecorationHeight),
             child: child,
           ),
+          Positioned(
+            right: 0,
+            child: IconButton(
+              iconSize: windowDecorationControlSize,
+              icon: const Icon(
+                Icons.close,
+                color: windowDecorationControlColor,
+                size: windowDecorationControlSize,
+              ),
+              onPressed: () {},
+            ),
+          ),
         ],
       ),
     );
