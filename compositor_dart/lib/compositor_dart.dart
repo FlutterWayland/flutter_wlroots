@@ -35,8 +35,14 @@ class Surface {
   final int uid;
   final bool isPopup;
   final int parentHandle;
-  final int prefferedWidth;
-  final int prefferedHeight;
+  final int surfaceWidth;
+  final int surfaceHeight;
+  final int offsetTop;
+  final int offsetLeft;
+  final int offsetRight;
+  final int offsetBottom;
+  final int contentWidth;
+  final int contentHeight;
   bool isMaximized;
   bool isMinimized;
 
@@ -47,8 +53,14 @@ class Surface {
     required this.uid,
     required this.isPopup,
     required this.parentHandle,
-    required this.prefferedWidth,
-    required this.prefferedHeight,
+    required this.surfaceWidth,
+    required this.surfaceHeight,
+    required this.offsetTop,
+    required this.offsetLeft,
+    required this.offsetRight,
+    required this.offsetBottom,
+    required this.contentWidth,
+    required this.contentHeight,
     this.isMaximized = false,
     this.isMinimized = false,
   });
@@ -143,8 +155,14 @@ class Compositor {
         uid: call.arguments["client_uid"],
         isPopup: call.arguments["is_popup"],
         parentHandle: call.arguments["parent_handle"],
-        prefferedHeight: call.arguments['preffered_height'],
-        prefferedWidth: call.arguments['preffered_width'],
+        surfaceHeight: call.arguments['surface_height'],
+        surfaceWidth: call.arguments['surface_width'],
+        offsetTop: call.arguments['offset_top'],
+        offsetLeft: call.arguments['offset_left'],
+        offsetRight: call.arguments['offset_right'],
+        offsetBottom: call.arguments['offset_bottom'],
+        contentWidth: call.arguments['content_width'],
+        contentHeight: call.arguments['content_height'],
       );
       surfaces.putIfAbsent(surface.handle, () => surface);
 

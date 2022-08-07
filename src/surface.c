@@ -67,12 +67,20 @@ static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
   message_builder_segment_push_string(&msg_seg, "surface_map");
   message_builder_segment_finish(&msg_seg);
 
-  struct wlr_box geometry = view->surface->current.geometry;
+
+  wlr_xdg_surface_get_geometry(view->surface, &view->geometry);
+
+  // struct wlr_box geometry = view->surface->current.geometry;
+  
+  struct wlr_box geometry = view->geometry;
   struct wlr_xdg_toplevel_state toplevel_state = view->xdg_toplevel->current;
+
+  int surface_width = view->surface->surface->current.width;
+  int surface_height = view->surface->surface->current.height;
 
   msg_seg = message_builder_segment(&msg);
   struct message_builder_segment arg_seg =
-      message_builder_segment_push_map(&msg_seg, 8);
+      message_builder_segment_push_map(&msg_seg, 14);
   message_builder_segment_push_string(&arg_seg, "handle");
   wlr_log(WLR_INFO, "viewhandle %d", view->handle);
   message_builder_segment_push_int64(&arg_seg, view->handle);
@@ -89,19 +97,41 @@ static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
   message_builder_segment_push_string(&arg_seg, "parent_handle");
   message_builder_segment_push_int64(&arg_seg, view->parent_handle);
 
-  if(view->is_popup){
-    message_builder_segment_push_string(&arg_seg, "preffered_width");
-    message_builder_segment_push_int64(&arg_seg, toplevel_state.width);
+  // if(view->is_popup){
+  //   message_builder_segment_push_string(&arg_seg, "preffered_width");
+  //   message_builder_segment_push_int64(&arg_seg, toplevel_state.width);
 
-    message_builder_segment_push_string(&arg_seg, "preffered_height");
-    message_builder_segment_push_int64(&arg_seg, toplevel_state.height);
-  } else {
-    message_builder_segment_push_string(&arg_seg, "preffered_width");
-    message_builder_segment_push_int64(&arg_seg, geometry.width);
+  //   message_builder_segment_push_string(&arg_seg, "preffered_height");
+  //   message_builder_segment_push_int64(&arg_seg, toplevel_state.height);
+  // } else {
+  
+  // this is geometry so content width
+  // need to add 2 more parameters - toplevel_state.width and height as whole buffer
+  message_builder_segment_push_string(&arg_seg, "surface_width");
+  message_builder_segment_push_int64(&arg_seg, surface_width);
 
-    message_builder_segment_push_string(&arg_seg, "preffered_height");
-    message_builder_segment_push_int64(&arg_seg, geometry.height);
-  }
+  message_builder_segment_push_string(&arg_seg, "surface_height");
+  message_builder_segment_push_int64(&arg_seg, surface_height);
+
+
+  message_builder_segment_push_string(&arg_seg, "offset_left");
+  message_builder_segment_push_int64(&arg_seg, geometry.x);
+
+  message_builder_segment_push_string(&arg_seg, "offset_top");
+  message_builder_segment_push_int64(&arg_seg, geometry.y);
+
+  message_builder_segment_push_string(&arg_seg, "offset_right");
+  message_builder_segment_push_int64(&arg_seg, surface_width - (geometry.width + geometry.x));
+
+  message_builder_segment_push_string(&arg_seg, "offset_bottom");
+  message_builder_segment_push_int64(&arg_seg, surface_height - (geometry.height + geometry.y));
+
+  message_builder_segment_push_string(&arg_seg, "content_width");
+  message_builder_segment_push_int64(&arg_seg, geometry.width);
+
+  message_builder_segment_push_string(&arg_seg, "content_height");
+  message_builder_segment_push_int64(&arg_seg, geometry.height);
+  // }
 
   message_builder_segment_finish(&arg_seg);
   
@@ -333,8 +363,6 @@ void fwr_new_xdg_surface(struct wl_listener *listener, void *data) {
       &view->request_minimize);
 
   }
-
-
 
   uint32_t view_handle = handle_map_add(instance->views, (void *)view);
 

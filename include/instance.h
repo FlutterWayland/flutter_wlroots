@@ -8,6 +8,7 @@
 #include <GLES2/gl2.h>
 #include <xkbcommon/xkbcommon.h>
 #include <wayland-server-core.h>
+#include <wlr/types/wlr_box.h>
 
 #include "shaders.h"
 #include "renderer.h"
@@ -105,6 +106,8 @@ struct fwr_view {
   struct wl_listener request_maximize;
 	struct wl_listener request_fullscreen;
 	struct wl_listener request_minimize;
+
+  struct wlr_box geometry;
 
 };
 

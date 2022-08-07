@@ -2,6 +2,7 @@ import 'package:compositor_dart/compositor_dart.dart';
 import 'package:compositor_dart/surface.dart';
 import 'package:demo/constants.dart';
 import 'package:demo/window.dart';
+import 'package:demo/window_clipper.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -153,19 +154,20 @@ class _MyHomePageState extends State<MyHomePage> {
                         : (isPopup ? mousePositionY : initialPositionY),
                     width: entry.value.isMaximized
                         ? constraints.maxWidth
-                        : entry.value.prefferedWidth.toDouble(),
+                        : entry.value.contentWidth.toDouble(),
                     height: entry.value.isMaximized
                         ? constraints.maxHeight
-                        : entry.value.prefferedHeight.toDouble(),
+                        : entry.value.contentHeight.toDouble(),
                     shouldDecorate: !isPopup,
                     isMaximized: entry.value.isMaximized,
                     onTap: () => focusView(entry.key),
                     child: SurfaceView(
-                        surface: entry.value,
-                        compositor: compositor,
-                        onPointerClick: (Surface surface) {
-                          focusView(surface.handle);
-                        }),
+                      surface: entry.value,
+                      compositor: compositor,
+                      onPointerClick: (Surface surface) {
+                        focusView(surface.handle);
+                      },
+                    ),
                   );
                 }).toList(),
               ),
