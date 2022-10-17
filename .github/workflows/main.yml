@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+    branches: [master, ci]
+    tags: ["*"]
+  pull_request:
+    branches: ["*"]
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v1
+      - uses: BSFishy/meson-build@v1.0.3
+        with:
+          action: build
+          setup-options: -Dwlroots:examples=false -Dwlroots:renderers=gles2 -Dwlroots:xcb-errors=disabled -Dflutter_wlroots:examples=true
+
+#meson build --reconfigure -Dwlroots:examples=false -Dwlroots:renderers=gles2 -Dwlroots:xcb-errors=disabled -Dflutter_wlroots:examples=true
