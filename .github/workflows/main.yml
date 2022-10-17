@@ -16,6 +16,7 @@ jobs:
       - uses: actions/setup-python@v1
       - uses: BSFishy/meson-build@v1.0.3
         with:
+          meson-version: 0.63.3
           action: build
           setup-options: -Dwlroots:examples=false -Dwlroots:renderers=gles2 -Dwlroots:xcb-errors=disabled -Dflutter_wlroots:examples=true
 
