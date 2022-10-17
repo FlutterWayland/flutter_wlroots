@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v1
-      - run: sudo apt-get install -y libdrm-dev libxkbcommon-dev libudev-dev
+      - run: sudo apt-get install -y libdrm-dev libxkbcommon-dev libudev-dev libwayland-dev
       - uses: BSFishy/meson-build@v1.0.3
         with:
           meson-version: 0.63.3
