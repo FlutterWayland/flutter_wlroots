@@ -32,11 +32,16 @@ class Surface {
   });
 }
 
+class CompositorSockets {
+  CompositorSockets({required this.wayland, required this.x});
+  final String wayland;
+  final String x;
+}
+
 class _CompositorPlatform {
   final MethodChannel channel = const MethodChannel("wlroots");
 
-  final HashMap<String, Future<dynamic> Function(MethodCall)> handlers =
-      HashMap();
+  final HashMap<String, Future<dynamic> Function(MethodCall)> handlers = HashMap();
 
   _CompositorPlatform() {
     channel.setMethodCallHandler((call) async {
@@ -57,18 +62,15 @@ class _CompositorPlatform {
     handlers[method] = handler;
   }
 
-  Future<void> surfaceToplevelSetSize(
-      Surface surface, int width, int height) async {
-    await channel.invokeListMethod(
-        "surface_toplevel_set_size", [surface.handle, width, height]);
+  Future<void> surfaceToplevelSetSize(Surface surface, int width, int height) async {
+    await channel.invokeListMethod("surface_toplevel_set_size", [surface.handle, width, height]);
   }
 
   Future<void> clearFocus(Surface surface) async {
     await channel.invokeMethod("surface_clear_focus", [surface.handle]);
   }
 
-  Future<void> surfaceSendKey(Surface surface, int keycode, KeyStatus status,
-      Duration timestamp) async {
+  Future<void> surfaceSendKey(Surface surface, int keycode, KeyStatus status, Duration timestamp) async {
     await channel.invokeListMethod(
       "surface_keyboard_key",
       [
@@ -79,11 +81,19 @@ class _CompositorPlatform {
       ],
     );
   }
+
+  Future<CompositorSockets> getSocketPaths() async {
+    var response = await channel.invokeMethod("get_socket_paths") as Map<dynamic, dynamic>;
+    return CompositorSockets(
+      wayland: response["wayland"] as String,
+      x: response["x"] as String,
+    );
+  }
 }
 
-final Compositor compositor = Compositor();
-
 class Compositor {
+  static final Compositor compositor = Compositor();
+
   static void initLogger() {
     FlutterError.onError = (FlutterErrorDetails details) {
       FlutterError.presentError(details);
@@ -93,6 +103,8 @@ class Compositor {
       stdout.writeln("${record.level.name}: ${record.time}: ${record.message}");
     });
   }
+
+  static bool? _isCompositor;
 
   _CompositorPlatform platform = _CompositorPlatform();
 
@@ -126,4 +138,25 @@ class Compositor {
 
     platform.addHandler("flutter/keyevent", (call) async {});
   }
+
+  /// Returns `true` if we are currently running in the compositor embedder.
+  /// If so, all functionality in this library is available.
+  ///
+  /// Returns `false` in all other cases. If so, no funcitonality in this
+  /// library should be used.
+  Future<bool> isCompositor() async {
+    if (_isCompositor != null) return _isCompositor!;
+
+    try {
+      await platform.channel.invokeMethod("is_compositor");
+      _isCompositor = true;
+    } on MissingPluginException {
+      _isCompositor = false;
+    }
+
+    return _isCompositor!;
+  }
+
+  /// Will return the paths of the compositor sockets.
+  Future<CompositorSockets> getSocketPaths() => platform.getSocketPaths();
 }

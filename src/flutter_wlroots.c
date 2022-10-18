@@ -47,6 +47,7 @@
 #include "task.h"
 #include "output.h"
 #include "surface.h"
+#include "platform_channel.h"
 
 //#define eglGetProcAddr eglGetProcAddress
 //#define __glintercept_log(...) wlr_log(WLR_INFO, __VA_ARGS__)
@@ -171,9 +172,50 @@ static void engine_cb_platform_message(
       return;
     }
 
+    if (strcmp(method_name, "get_socket_paths") == 0) {
+      platch_respond_success_std(instance, engine_message->response_handle, &(struct std_value) {
+        .type = kStdMap,
+        .size = 2,
+        .keys = (struct std_value[2]) {
+          {
+            .type = kStdString,
+            .string_value = "wayland"
+          },
+          {
+            .type = kStdString,
+            .string_value = "x"
+          }
+        },
+        .values = (struct std_value[2]) {
+          {
+            .type = kStdString,
+            .string_value = (char*) instance->wl_socket,
+          },
+          {
+            .type = kStdString,
+            .string_value = "",
+          }
+        },
+      });
+      return;
+    }
+
     wlr_log(WLR_INFO, "Unhandled platform message: channel: %s %s", engine_message->channel, method_name);
     goto error;
   }
+
+  // Forward to channel handler plugins.
+  for (int i = 0; i < instance->plugin_registry.plugin_channel_handlers_len; i++) {
+    struct fwr_plugin_channel_handler *channel_handler = &instance->plugin_registry.plugin_channel_handlers[i];
+    if (strcmp(engine_message->channel, channel_handler->name) == 0) {
+      if (channel_handler->handle_message(instance, engine_message, channel_handler->data)) {
+        return;
+      } else {
+        goto error;
+      }
+    }
+  }
+
 
 error:
   // TODO(hansihe): Handle messages
@@ -273,6 +315,7 @@ bool fwr_instance_create(struct fwr_instance_opts opts, struct fwr_instance **in
     return false;
 	}
   wlr_log(WLR_INFO, "Wayland socket: %s", socket);
+  instance->wl_socket = socket;
 
   if (!wlr_backend_start(instance->backend)) {
 		wlr_backend_destroy(instance->backend);
@@ -333,6 +376,10 @@ bool fwr_instance_create(struct fwr_instance_opts opts, struct fwr_instance **in
     project_args.aot_data = aot_data;
 
   }
+
+  fwr_plugin_registry_init(&instance->plugin_registry);
+  //#ifdef FWR_BUILTIN_PLUGIN_TEXT_INPUT
+  //#endif // FWR_BUILTIN_PLUGIN_TEXT_INPUT
 
   wlr_log(WLR_INFO, "Pre engine run");
   FlutterEngineResult fl_result = instance->fl_proc_table.Run(
