@@ -35,6 +35,7 @@ foreach builtin_plugin : builtin_plugins
 endforeach
 
 subdir('src')
+subdir('include')
 
 fwr_inc = include_directories('include')
 

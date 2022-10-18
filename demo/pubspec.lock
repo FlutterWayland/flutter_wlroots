@@ -42,7 +42,7 @@ packages:
       name: collection
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "1.15.0"
+    version: "1.16.0"
   compositor_dart:
     dependency: "direct main"
     description:
@@ -63,7 +63,7 @@ packages:
       name: fake_async
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "1.2.0"
+    version: "1.3.0"
   flutter:
     dependency: "direct main"
     description: flutter
@@ -169,7 +169,7 @@ packages:
       name: test_api
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "0.4.8"
+    version: "0.4.9"
   typed_data:
     dependency: transitive
     description:
@@ -185,5 +185,5 @@ packages:
     source: hosted
     version: "2.1.1"
 sdks:
-  dart: ">=2.15.0 <3.0.0"
+  dart: ">=2.17.0-0 <3.0.0"
   flutter: ">=1.17.0"
