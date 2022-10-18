@@ -30,6 +30,7 @@ fwr_deps = [
 ]
 
 subdir('src')
+subdir('include')
 
 fwr_inc = include_directories('include')
 
