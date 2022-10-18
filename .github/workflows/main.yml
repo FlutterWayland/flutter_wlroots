@@ -14,13 +14,15 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v1
-      - run: sudo apt-get install -y libdrm-dev libxkbcommon-dev libudev-dev libwayland-dev libegl-dev libgles-dev libinput-dev libseat-dev seatd
+      - run: sudo apt-get install -y libdrm-dev libxkbcommon-dev libudev-dev libwayland-dev libegl-dev libgles-dev libinput-dev libseat-dev seatd patchelf
       - uses: BSFishy/meson-build@v1.0.3
         with:
           meson-version: 0.63.3
           action: install
           setup-options: -Dwlroots:examples=false -Dwlroots:renderers=gles2 -Dwlroots:xcb-errors=disabled -Dflutter_wlroots:examples=true
           options: --destdir install
+      # TODO: Remove this
+      - run: patchelf --add-rpath ./ build/install/usr/local/lib/x86_64-linux-gnu/libflutter_wlroots.so
       - uses: actions/upload-artifact@v3
         with:
           name: full_build
