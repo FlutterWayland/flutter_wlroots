@@ -1,2 +1,2 @@
-option('engine_commit', type: 'string', value: '890a5fca2e34db413be624fc83aeea8e61d42ce6', description: 'Commit of engine build to use')
-option('engine_embedder_hash', type: 'string', value: '2ab7c40a7aef8ba4b5766a930e95e3d5bd92c70d8d8d6cc3f28bb690ec030b14', description: 'If present, sha256 hash to validate embedder build')
+option('engine_commit', type: 'string', value: 'c08d7d5efc9aa6eb3c30cfb3be6dc09bca5e7631', description: 'Commit of engine build to use, c08d7d5efc9aa6eb3c30cfb3be6dc09bca5e7631 corresponding to flutter 3.3.4 by default')
+option('engine_embedder_hash', type: 'string', value: 'f0b3e15746a15365d690e1f0e9d3bead6aa4e5664097e766b83a5779404cdbda', description: 'If present, sha256 hash to validate embedder build')
