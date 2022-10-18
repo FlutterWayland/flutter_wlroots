@@ -28,6 +28,6 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
           name: install
-          path: install
+          path: build/install
 
 #meson build --reconfigure -Dwlroots:examples=false -Dwlroots:renderers=gles2 -Dwlroots:xcb-errors=disabled -Dflutter_wlroots:examples=true
