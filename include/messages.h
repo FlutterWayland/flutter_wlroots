@@ -6,9 +6,12 @@
 struct surface_pointer_event_message {
     uint32_t surface_handle;
     int64_t buttons;
+    int64_t embedder_id;
     uint8_t device_kind;
     double local_pos_x;
     double local_pos_y;
+    int64_t platform_id;
+    int64_t pointer;
     double widget_size_x;
     double widget_size_y;
     double scroll_delta_x;

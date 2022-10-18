@@ -518,6 +518,12 @@ void fwr_input_init(struct fwr_instance *instance) {
   instance->input.mouse_button_mask = 0;
   instance->input.fl_mouse_button_mask = 0;
 
+  instance->input.simulating_pointer_from_touch = false;
+  instance->input.touch_pointer_simulation_id = 0;
+  for (int i = 0; i < FWR_MULTITOUCH_MAX; i++) {
+    instance->input.touch_ids[i] = -1;
+  }
+
   instance->cursor = wlr_cursor_create();
 	wlr_cursor_attach_output_layout(instance->cursor, instance->output_layout);
 
@@ -604,6 +610,8 @@ void fwr_handle_surface_pointer_event_message(struct fwr_instance *instance, con
 
   //wlr_log(WLR_INFO, "yay pointer event %d %ld", message.event_type, message.buttons);
 
+  struct fwr_input_state *input_state = &instance->input;
+
   struct wlr_surface_state *surface_state = &view->surface->surface->current;
 
   double transformed_local_pos_x = message.local_pos_x / message.widget_size_x * surface_state->width;
@@ -660,6 +668,85 @@ void fwr_handle_surface_pointer_event_message(struct fwr_instance *instance, con
 
       wlr_seat_pointer_notify_frame(instance->seat);
 
+      break;
+    }
+
+    case pointerKindTouch: {
+      int first_free_touch_id = -1;
+      int touch_id = -1;
+      for (int i = 0; i < FWR_MULTITOUCH_MAX; i++) {
+        if (input_state->touch_ids[i] == -1 && first_free_touch_id == -1) {
+          first_free_touch_id = i;
+        }
+        if (input_state->touch_ids[i] == message.pointer) {
+          touch_id = i;
+          break;
+        }
+      }
+
+      if (message.event_type == pointerDownEvent) {
+        if (touch_id != -1) {
+          wlr_log(WLR_ERROR, "Got already allocated touch in on pointerDownEvent!! (%d %ld)", touch_id, message.pointer);
+          goto success;
+        }
+
+        if (first_free_touch_id == -1) {
+          wlr_log(WLR_ERROR, "Got pointerDownEvent but all touch ids where already allocated!");
+          goto success;
+        }
+
+        input_state->touch_ids[first_free_touch_id] = message.pointer;
+      } else {
+        if (touch_id == -1) {
+          goto success;
+        }
+      }
+
+      bool accepts_touch = wlr_surface_accepts_touch(instance->seat, view->surface->surface);
+      double transformed_local_pos_x = message.local_pos_x / message.widget_size_x * surface_state->width;
+      double transformed_local_pos_y = message.local_pos_y / message.widget_size_y * surface_state->height;
+
+      if (message.event_type == pointerDownEvent) {
+        wlr_log(WLR_INFO, "touch down %d", touch_id);
+        if (accepts_touch) {
+          wlr_seat_touch_notify_down(instance->seat, view->surface->surface, message.timestamp / NS_PER_MS, touch_id, transformed_local_pos_x, transformed_local_pos_y);
+          wlr_seat_touch_notify_frame(instance->seat);
+        } else if(!input_state->simulating_pointer_from_touch) {
+          input_state->simulating_pointer_from_touch = true;
+          input_state->touch_pointer_simulation_id = first_free_touch_id;
+
+          wlr_seat_pointer_notify_enter(instance->seat, view->surface->surface, transformed_local_pos_x, transformed_local_pos_y);
+          wlr_seat_pointer_notify_motion(instance->seat, message.timestamp / NS_PER_MS, transformed_local_pos_x, transformed_local_pos_y);
+          wlr_seat_pointer_notify_button(instance->seat, message.timestamp / NS_PER_MS, BTN_LEFT, WLR_BUTTON_PRESSED);
+          wlr_seat_pointer_notify_frame(instance->seat);
+        }
+        // TODO focus?
+      } 
+      if (message.event_type == pointerUpEvent) {
+        wlr_log(WLR_INFO, "touch up %d", touch_id);
+        input_state->touch_ids[touch_id] = -1;
+        if (accepts_touch) {
+          wlr_seat_touch_notify_up(instance->seat, message.timestamp / NS_PER_MS, touch_id);
+          wlr_seat_touch_notify_frame(instance->seat);
+        } else if (input_state->touch_pointer_simulation_id == touch_id) {
+          input_state->simulating_pointer_from_touch = false;
+          input_state->touch_pointer_simulation_id = -1;
+
+          wlr_seat_pointer_notify_button(instance->seat, message.timestamp / NS_PER_MS, BTN_LEFT, WLR_BUTTON_RELEASED);
+          wlr_seat_pointer_clear_focus(instance->seat);
+          wlr_seat_pointer_notify_frame(instance->seat);
+        }
+      }
+      if (message.event_type == pointerMoveEvent) {
+        wlr_log(WLR_INFO, "touch move %d", touch_id);
+        if (accepts_touch) {
+          wlr_seat_touch_notify_motion(instance->seat, message.timestamp / NS_PER_MS, touch_id, transformed_local_pos_x, transformed_local_pos_y);
+          wlr_seat_touch_notify_frame(instance->seat);
+        } else if (input_state->touch_pointer_simulation_id == touch_id) {
+          wlr_seat_pointer_notify_motion(instance->seat, message.timestamp / NS_PER_MS, transformed_local_pos_x, transformed_local_pos_y);
+          wlr_seat_pointer_notify_frame(instance->seat);
+        }
+      }
       break;
     }
   }

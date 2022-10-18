@@ -73,9 +73,11 @@ class _MyAppState extends State<MyApp> {
     return PlatformKeyboardWidget(
       callbacks: PlatformKeyboardCallbacks(
         setClient: (client) {
+          print("setclient");
           SchedulerBinding.instance!.addPostFrameCallback((duration) {
             setState(() {
               keyboardClient = client;
+              print(client?.inputConfiguration);
             });
           });
         },

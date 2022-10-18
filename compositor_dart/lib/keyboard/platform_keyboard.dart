@@ -12,6 +12,14 @@ class PlatformKeyboardCallbacks {
 
   Function(bool) setShown;
   Function(KeyboardClientController?) setClient;
+
+  @override
+  bool operator ==(Object other) {
+    return other is PlatformKeyboardCallbacks && other.setClient == setClient && other.setShown == setShown;
+  }
+
+  @override
+  int get hashCode => Object.hash(setShown, setClient);
 }
 
 class PlatformKeyboard {
