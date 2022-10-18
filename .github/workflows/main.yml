@@ -18,11 +18,15 @@ jobs:
       - uses: BSFishy/meson-build@v1.0.3
         with:
           meson-version: 0.63.3
-          action: build
-          setup-options: -Dwlroots:examples=false -Dwlroots:renderers=gles2 -Dwlroots:xcb-errors=disabled -Dflutter_wlroots:examples=true
+          action: install
+          setup-options: -Dwlroots:examples=false -Dwlroots:renderers=gles2 -Dwlroots:xcb-errors=disabled -Dflutter_wlroots:examples=true --destdir install
       - uses: actions/upload-artifact@v3
         with:
           name: full_build
           path: build
+      - uses: actions/upload-artifact@v3
+        with:
+          name: install
+          path: install
 
 #meson build --reconfigure -Dwlroots:examples=false -Dwlroots:renderers=gles2 -Dwlroots:xcb-errors=disabled -Dflutter_wlroots:examples=true
