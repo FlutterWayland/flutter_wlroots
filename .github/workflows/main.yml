@@ -20,5 +20,9 @@ jobs:
           meson-version: 0.63.3
           action: build
           setup-options: -Dwlroots:examples=false -Dwlroots:renderers=gles2 -Dwlroots:xcb-errors=disabled -Dflutter_wlroots:examples=true
+      - uses: actions/upload-artifact@v3
+        with:
+          name: full_build
+          path: build
 
 #meson build --reconfigure -Dwlroots:examples=false -Dwlroots:renderers=gles2 -Dwlroots:xcb-errors=disabled -Dflutter_wlroots:examples=true
