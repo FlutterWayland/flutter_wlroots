@@ -202,7 +202,10 @@ class _MyHomePageState extends State<MyHomePage> {
 
         if (keycode != null && focusedSurface != null) {
           compositor.platform.surfaceSendKey(
-              surface!, keycode, event is KeyDownEvent ? KeyStatus.pressed : KeyStatus.released, event.timeStamp);
+              surfaces[focusedSurface]!,
+              keycode,
+              event is KeyDownEvent ? KeyStatus.pressed : KeyStatus.released,
+              event.timeStamp);
         }
         return KeyEventResult.handled;
       },
@@ -250,20 +253,15 @@ class _MyHomePageState extends State<MyHomePage> {
                   );
                 }).toList(),
               ),
-              Container(
-                color: Colors.amber,
-                padding: const EdgeInsets.all(8.0),
-                child: SizedBox(width: 500, height: 500, child: surfaceView),
-              ),
-            ],
-          ),
-        ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: _incrementCounter,
-          tooltip: 'Increment',
-          child: const Icon(Icons.add),
-        ), // This trailing comma makes auto-formatting nicer for build methods.
+            ),
+          );
+        }),
       ),
+      // floatingActionButton: FloatingActionButton(
+      //   onPressed: _incrementCounter,
+      //   tooltip: 'Increment',
+      //   child: const Icon(Icons.add),
+      // ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }

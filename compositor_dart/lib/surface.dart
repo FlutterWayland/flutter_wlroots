@@ -105,7 +105,7 @@ class _SurfaceViewState extends State<SurfaceView> {
           int? keycode = physicalToXkbMap[event.physicalKey.usbHidUsage];
 
           if (keycode != null) {
-            controller.surface.compositor.platform.surfaceSendKey(
+            controller.compositor.platform.surfaceSendKey(
               widget.surface,
               keycode,
               status,
