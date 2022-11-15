@@ -105,7 +105,7 @@ class _SurfaceViewState extends State<SurfaceView> {
           int? keycode = physicalToXkbMap[event.physicalKey.usbHidUsage];
 
           if (keycode != null) {
-            widget.compositor.platform.surfaceSendKey(
+            controller.surface.compositor.platform.surfaceSendKey(
               widget.surface,
               keycode,
               status,
@@ -148,12 +148,13 @@ class _CompositorPlatformViewController extends PlatformViewController {
 
   void setSize(Size size) {
     this.size = size;
-    compositor.platform.surfaceToplevelSetSize(
+    Compositor.compositor.platform.surfaceToplevelSetSize(
         surface, size.width.round(), size.height.round());
   }
 
   @override
-  Future<void> clearFocus() => compositor.platform.clearFocus(surface);
+  Future<void> clearFocus() =>
+      Compositor.compositor.platform.clearFocus(surface);
 
   @override
   Future<void> dispatchPointerEvent(PointerEvent event) async {
@@ -232,7 +233,7 @@ class _CompositorPlatformViewController extends PlatformViewController {
 
     //print("pointerevent $data");
 
-    await compositor.platform.channel.invokeMethod(
+    await Compositor.compositor.platform.channel.invokeMethod(
       "surface_pointer_event",
       data,
     );

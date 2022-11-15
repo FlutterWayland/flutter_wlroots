@@ -1,38 +1,120 @@
 import 'package:compositor_dart/compositor_dart.dart';
+import 'package:compositor_dart/keyboard/keyboard_client_controller.dart';
+import 'package:compositor_dart/keyboard/platform_keyboard.dart';
+import 'package:compositor_dart/platform/interceptor_widgets_binding.dart';
 import 'package:compositor_dart/surface.dart';
 import 'package:demo/constants.dart';
 import 'package:demo/window.dart';
 import 'package:demo/window_clipper.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 void main() {
   Compositor.initLogger();
-  runApp(const MyApp());
+  InterceptorWidgetsBinding.runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({Key? key}) : super(key: key);
+
+  @override
+  State<StatefulWidget> createState() {
+    return _MyAppState();
+  }
+}
+
+class KeyboardTest extends StatelessWidget {
+  final Function(String) onPressed;
+
+  const KeyboardTest({Key? key, required this.onPressed}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: SizedBox(
+        height: 500,
+        child: Column(
+          children: [
+            TextButton(
+              onPressed: () {
+                onPressed("a");
+              },
+              child: const Text("a"),
+            ),
+            TextButton(
+              onPressed: () {
+                onPressed("b");
+              },
+              child: const Text("b"),
+            ),
+            TextButton(
+              onPressed: () {
+                onPressed("c");
+              },
+              child: const Text("c"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MyAppState extends State<MyApp> {
+  _MyAppState();
+
+  KeyboardClientController? keyboardClient;
+  bool shown = false;
 
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
-        primarySwatch: Colors.blue,
+    return PlatformKeyboardWidget(
+      callbacks: PlatformKeyboardCallbacks(
+        setClient: (client) {
+          print("setclient");
+          SchedulerBinding.instance!.addPostFrameCallback((duration) {
+            setState(() {
+              keyboardClient = client;
+              print(client?.inputConfiguration);
+            });
+          });
+        },
+        setShown: (shown) {
+          SchedulerBinding.instance!.addPostFrameCallback((duration) {
+            setState(() {
+              this.shown = shown;
+            });
+          });
+        },
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      child: Stack(
+        textDirection: TextDirection.ltr,
+        children: [
+          MaterialApp(
+            title: 'Flutter Demo',
+            theme: ThemeData(
+              // This is the theme of your application.
+              //
+              // Try running your application with "flutter run". You'll see the
+              // application has a blue toolbar. Then, without quitting the app, try
+              // changing the primarySwatch below to Colors.green and then invoke
+              // "hot reload" (press "r" in the console where you ran "flutter run",
+              // or simply save your changes to "hot reload" in a Flutter IDE).
+              // Notice that the counter didn't reset back to zero; the application
+              // is not restarted.
+              primarySwatch: Colors.blue,
+            ),
+            home: const MyHomePage(title: 'Flutter Demo Home Page'),
+          ),
+          KeyboardTest(onPressed: (val) {
+            keyboardClient?.addText(val);
+          }),
+        ],
+      ),
     );
   }
 }
@@ -120,10 +202,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
         if (keycode != null && focusedSurface != null) {
           compositor.platform.surfaceSendKey(
-              surfaces[focusedSurface]!,
-              keycode,
-              event is KeyDownEvent ? KeyStatus.pressed : KeyStatus.released,
-              event.timeStamp);
+              surface!, keycode, event is KeyDownEvent ? KeyStatus.pressed : KeyStatus.released, event.timeStamp);
         }
         return KeyEventResult.handled;
       },
@@ -171,10 +250,41 @@ class _MyHomePageState extends State<MyHomePage> {
                   );
                 }).toList(),
               ),
-            ),
-          );
-        }),
+              Container(
+                color: Colors.amber,
+                padding: const EdgeInsets.all(8.0),
+                child: SizedBox(width: 500, height: 500, child: surfaceView),
+              ),
+            ],
+          ),
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: _incrementCounter,
+          tooltip: 'Increment',
+          child: const Icon(Icons.add),
+        ), // This trailing comma makes auto-formatting nicer for build methods.
       ),
+    );
+  }
+}
+
+class TestSlider extends StatefulWidget {
+  @override
+  State<StatefulWidget> createState() {
+    return TestSliderState();
+  }
+}
+
+class TestSliderState extends State<TestSlider> {
+  double state = 0.5;
+
+  @override
+  Widget build(BuildContext context) {
+    return Slider(
+      value: state,
+      onChanged: (n) => setState(() {
+        state = n;
+      }),
     );
   }
 }

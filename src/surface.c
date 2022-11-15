@@ -28,18 +28,17 @@ static void focus_view(struct fwr_view *view, struct wlr_surface *surface) {
 		/* Don't re-focus an already focused surface. */
 		return;
 	}
-  // TODO: we should manage changing focus on dart side
-	// if (prev_surface) {
-	// 	/*
-	// 	 * Deactivate the previously focused surface. This lets the client know
-	// 	 * it no longer has focus and the client will repaint accordingly, e.g.
-	// 	 * stop displaying a caret.
-	// 	 */
-	// 	struct wlr_xdg_surface *previous = wlr_xdg_surface_from_wlr_surface(
-	// 				seat->keyboard_state.focused_surface);
-	// 	assert(previous->role == WLR_XDG_SURFACE_ROLE_TOPLEVEL);
-	// 	wlr_xdg_toplevel_set_activated(previous->toplevel, false);
-	// }
+	if (prev_surface) {
+		/*
+		 * Deactivate the previously focused surface. This lets the client know
+		 * it no longer has focus and the client will repaint accordingly, e.g.
+		 * stop displaying a caret.
+		 */
+		struct wlr_xdg_surface *previous = wlr_xdg_surface_from_wlr_surface(
+					seat->keyboard_state.focused_surface);
+		assert(previous->role == WLR_XDG_SURFACE_ROLE_TOPLEVEL);
+		wlr_xdg_toplevel_set_activated(previous, false);
+	}
 	struct wlr_keyboard *keyboard = wlr_seat_get_keyboard(seat);
   	/* Activate the new surface */
 	if(view->surface->role == WLR_XDG_SURFACE_ROLE_TOPLEVEL) {
@@ -158,7 +157,7 @@ static void xdg_toplevel_map(struct wl_listener *listener, void *data) {
   instance->fl_proc_table.PlatformMessageReleaseResponseHandle(instance->engine,
                                                                response_handle);
 
-  focus_view(view, view->surface);
+  focus_view(view, view->surface->surface);
 }
 
 static void xdg_toplevel_unmap(struct wl_listener *listener, void *data) {

@@ -55,9 +55,12 @@ bool decode_surface_pointer_event_message(struct dart_value *value, struct surfa
 
     DECODE_INTEGER(out->surface_handle, &value->list.values[0]);
     DECODE_INTEGER(out->buttons, &value->list.values[1]);
+    DECODE_INTEGER(out->embedder_id, &value->list.values[7]);
     DECODE_INTEGER(out->device_kind, &value->list.values[8]);
     DECODE_FLOAT64(out->local_pos_x, &value->list.values[11]);
     DECODE_FLOAT64(out->local_pos_y, &value->list.values[12]);
+    DECODE_INTEGER(out->platform_id, &value->list.values[15]);
+    DECODE_INTEGER(out->pointer, &value->list.values[16]);
     DECODE_INTEGER(out->timestamp, &value->list.values[25]);
     DECODE_INTEGER(out->event_type, &value->list.values[26]);
     DECODE_FLOAT64(out->widget_size_x, &value->list.values[27]);

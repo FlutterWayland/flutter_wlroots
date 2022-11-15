@@ -75,6 +75,8 @@ static void output_present(struct wl_listener *listener, void *data) {
   struct fwr_instance *instance = output->instance;
   struct wlr_output_event_present *event = data;
 
+  //wlr_log(WLR_INFO, "present flags: %d", event->flags);
+
   intptr_t baton = atomic_exchange(&instance->vsync_baton, 0);
   if (baton != 0) {
     uint64_t current_time = instance->fl_proc_table.GetCurrentTime();
@@ -131,6 +133,7 @@ void fwr_server_new_output(struct wl_listener *listener, void *data) {
     struct wlr_output_mode *mode = wlr_output_preferred_mode(wlr_output);
     wlr_output_set_mode(wlr_output, mode);
     wlr_output_enable(wlr_output, true);
+    wlr_output_enable_adaptive_sync(wlr_output, true);
     if (!wlr_output_commit(wlr_output)) {
       return;
     }

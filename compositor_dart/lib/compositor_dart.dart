@@ -71,6 +71,12 @@ class Surface {
   }
 }
 
+class CompositorSockets {
+  CompositorSockets({required this.wayland, required this.x});
+  final String wayland;
+  final String x;
+}
+
 class _CompositorPlatform {
   final MethodChannel channel = const MethodChannel("wlroots");
 
@@ -122,9 +128,20 @@ class _CompositorPlatform {
   Future<void> surfaceFocusViewWithHandle(int handle) async {
     await channel.invokeMethod("surface_focus_from_handle", [handle]);
   }
+
+  Future<CompositorSockets> getSocketPaths() async {
+    var response =
+        await channel.invokeMethod("get_socket_paths") as Map<dynamic, dynamic>;
+    return CompositorSockets(
+      wayland: response["wayland"] as String,
+      x: response["x"] as String,
+    );
+  }
 }
 
 class Compositor {
+  static final Compositor compositor = Compositor();
+
   static void initLogger() {
     FlutterError.onError = (FlutterErrorDetails details) {
       FlutterError.presentError(details);
@@ -134,6 +151,8 @@ class Compositor {
       stdout.writeln("${record.level.name}: ${record.time}: ${record.message}");
     });
   }
+
+  static bool? _isCompositor;
 
   _CompositorPlatform platform = _CompositorPlatform();
 
@@ -193,5 +212,26 @@ class Compositor {
       windowEvents.add(WindowEvent(
           windowEventType: WindowEventType.minimize, handle: handle));
     });
+
+    /// Returns `true` if we are currently running in the compositor embedder.
+    /// If so, all functionality in this library is available.
+    ///
+    /// Returns `false` in all other cases. If so, no funcitonality in this
+    /// library should be used.
+    Future<bool> isCompositor() async {
+      if (_isCompositor != null) return _isCompositor!;
+
+      try {
+        await platform.channel.invokeMethod("is_compositor");
+        _isCompositor = true;
+      } on MissingPluginException {
+        _isCompositor = false;
+      }
+
+      return _isCompositor!;
+    }
+
+    /// Will return the paths of the compositor sockets.
+    Future<CompositorSockets> getSocketPaths() => platform.getSocketPaths();
   }
 }

@@ -6,13 +6,14 @@
 #include "shaders.h"
 #include "standard_message_codec.h"
 
+
+#define FWR_MULTITOUCH_MAX 10
+
 enum fwr_cursor_mode {
 	FWR_CURSOR_PASSTHROUGH,
 	FWR_CURSOR_MOVE,
 	FWR_CURSOR_RESIZE,
 };
-
-
 struct fwr_input_state {
     uint32_t mouse_button_mask;
     uint32_t fl_mouse_button_mask;
@@ -21,6 +22,11 @@ struct fwr_input_state {
     uint32_t acc_mouse_button_mask;
     double acc_scroll_delta_x;
     double acc_scroll_delta_y;
+
+    // Touch state
+    bool simulating_pointer_from_touch;
+    int touch_pointer_simulation_id;
+    int64_t touch_ids[FWR_MULTITOUCH_MAX];
 };
 
 struct fwr_input_touch_point_state {

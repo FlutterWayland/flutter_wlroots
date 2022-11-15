@@ -354,7 +354,7 @@ static void render_scene_layer_platform(struct fwr_instance *instance, struct fw
   uint32_t view_handle = layer->platform.platform_view_id;
   struct fwr_view *view;
   if (!handle_map_get(instance->views, view_handle, (void**) &view)) {
-    wlr_log(WLR_ERROR, "Got invalid view handle!");
+    wlr_log(WLR_ERROR, "Got invalid view handle! (%d)", view_handle);
     return;
   }
 

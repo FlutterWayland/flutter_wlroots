@@ -22,3 +22,4 @@ cc = meson.get_compiler('c')
 embedder_dep = declare_dependency(
   dependencies : cc.find_library('flutter_engine', dirs : meson.current_source_dir()),
   include_directories : include_directories('.'))
+install_data('libflutter_engine.so', install_dir : get_option('libdir'))
