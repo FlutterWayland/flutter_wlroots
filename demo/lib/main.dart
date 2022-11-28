@@ -1,10 +1,12 @@
-import 'dart:io';
-
 import 'package:compositor_dart/compositor_dart.dart';
 import 'package:compositor_dart/keyboard/keyboard_client_controller.dart';
 import 'package:compositor_dart/keyboard/platform_keyboard.dart';
 import 'package:compositor_dart/platform/interceptor_widgets_binding.dart';
 import 'package:compositor_dart/surface.dart';
+import 'package:demo/constants.dart';
+import 'package:demo/window.dart';
+import 'package:demo/window_clipper.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
@@ -136,111 +138,130 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-  Compositor compositor = Compositor();
-  Surface? surface;
+  late Compositor compositor;
+  Map<int, Surface> surfaces = {};
 
-  _MyHomePageState() {
-    compositor.surfaceMapped.stream.listen((event) {
+  int? focusedSurface;
+  late double mousePositionX;
+  late double mousePositionY;
+
+  @override
+  void initState() {
+    super.initState();
+
+    mousePositionX = 0;
+    mousePositionY = 0;
+
+    compositor = Compositor();
+    compositor.surfaceMapped.stream.listen((Surface event) {
       setState(() {
-        surface = event;
+        surfaces.putIfAbsent(event.handle, () => event);
+        focusedSurface = event.handle;
       });
     });
-    compositor.surfaceUnmapped.stream.listen((event) {
-      if (surface == event) {
+    compositor.surfaceUnmapped.stream.listen((Surface event) {
+      setState(() {
+        surfaces.removeWhere((key, value) => key == event.handle);
+        if (surfaces.isNotEmpty) {
+          focusedSurface = surfaces.keys.last;
+        } else {
+          focusedSurface = null;
+        }
+      });
+    });
+
+    compositor.windowEvents.stream.listen((WindowEvent event) {
+      if (event.windowEventType == WindowEventType.maximize) {
         setState(() {
-          surface = null;
+          surfaces[event.handle]!.isMaximized =
+              !surfaces[event.handle]!.isMaximized;
+        });
+      }
+
+      if (event.windowEventType == WindowEventType.minimize) {
+        setState(() {
+          surfaces[event.handle]!.isMinimized =
+              !surfaces[event.handle]!.isMinimized;
         });
       }
     });
   }
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+  void focusView(int handle) {
+    if (focusedSurface != handle) {
+      compositor.platform.surfaceFocusViewWithHandle(handle);
+      focusedSurface = handle;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    Widget? surfaceView;
-    if (surface != null) {
-      surfaceView = SurfaceView(
-        surface: surface!,
-      );
-    }
-
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Focus(
       onKeyEvent: (node, KeyEvent event) {
         int? keycode = compositor.keyToXkb(event.physicalKey.usbHidUsage);
 
-        if (keycode != null && surface != null) {
+        if (keycode != null && focusedSurface != null) {
           compositor.platform.surfaceSendKey(
-              surface!, keycode, event is KeyDownEvent ? KeyStatus.pressed : KeyStatus.released, event.timeStamp);
+              surfaces[focusedSurface]!,
+              keycode,
+              event is KeyDownEvent ? KeyStatus.pressed : KeyStatus.released,
+              event.timeStamp);
         }
         return KeyEventResult.handled;
       },
       autofocus: true,
       child: Scaffold(
         appBar: AppBar(
-          // Here we take the value from the MyHomePage object that was created by
-          // the App.build method, and use it to set our appbar title.
           title: Text(widget.title),
         ),
-        body: Center(
-          // Center is a layout widget. It takes a single child and positions it
-          // in the middle of the parent.
-          child: Column(
-            // Column is also a layout widget. It takes a list of children and
-            // arranges them vertically. By default, it sizes itself to fit its
-            // children horizontally, and tries to be as tall as its parent.
-            //
-            // Invoke "debug painting" (press "p" in the console, choose the
-            // "Toggle Debug Paint" action from the Flutter Inspector in Android
-            // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-            // to see the wireframe for each widget.
-            //
-            // Column has various properties to control how it sizes itself and
-            // how it positions its children. Here we use mainAxisAlignment to
-            // center the children vertically; the main axis here is the vertical
-            // axis because Columns are vertical (the cross axis would be
-            // horizontal).
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              const Text(
-                'You have pushed the button this many timesa:',
+        body: LayoutBuilder(builder: (context, constraints) {
+          return SizedBox.expand(
+            child: MouseRegion(
+              onHover: (PointerHoverEvent event) {
+                mousePositionX = event.position.dx;
+                mousePositionY = event.position.dy;
+              },
+              child: Stack(
+                children: surfaces.entries
+                    .skipWhile((entry) => entry.value.isMinimized)
+                    .map((MapEntry<int, Surface> entry) {
+                  final isPopup = entry.value.isPopup;
+
+                  return Window(
+                    initialX: entry.value.isMaximized
+                        ? 0
+                        : (isPopup ? mousePositionX : initialPositionX),
+                    initialY: entry.value.isMaximized
+                        ? 0
+                        : (isPopup ? mousePositionY : initialPositionY),
+                    width: entry.value.isMaximized
+                        ? constraints.maxWidth
+                        : entry.value.contentWidth.toDouble(),
+                    height: entry.value.isMaximized
+                        ? constraints.maxHeight
+                        : entry.value.contentHeight.toDouble(),
+                    shouldDecorate: !isPopup,
+                    isMaximized: entry.value.isMaximized,
+                    onTap: () => focusView(entry.key),
+                    child: SurfaceView(
+                      surface: entry.value,
+                      compositor: compositor,
+                      onPointerClick: (Surface surface) {
+                        focusView(surface.handle);
+                      },
+                    ),
+                  );
+                }).toList(),
               ),
-              Text(
-                '$_counter',
-                style: Theme.of(context).textTheme.headline4,
-              ),
-              Container(
-                color: Colors.amber,
-                padding: const EdgeInsets.all(8.0),
-                child: SizedBox(width: 500, height: 500, child: surfaceView),
-              ),
-              TestSlider(),
-              const TextField(),
-            ],
-          ),
-        ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: _incrementCounter,
-          tooltip: 'Increment',
-          child: const Icon(Icons.add),
-        ), // This trailing comma makes auto-formatting nicer for build methods.
+            ),
+          );
+        }),
       ),
+      // floatingActionButton: FloatingActionButton(
+      //   onPressed: _incrementCounter,
+      //   tooltip: 'Increment',
+      //   child: const Icon(Icons.add),
+      // ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }

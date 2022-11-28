@@ -101,3 +101,16 @@ bool decode_surface_toplevel_set_size_message(struct dart_value *value, struct s
 
     return true;
 }
+
+bool decode_surface_handle_focus_message(struct dart_value *value, struct surface_handle_focus_message *out) {
+    if (value->type != dvList) {
+        return false;
+    }
+    if (value->list.length != 1) {
+        return false;
+    }
+
+    DECODE_INTEGER(out->surface_handle, &value->list.values[0]);
+    
+    return true;
+}

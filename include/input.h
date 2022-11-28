@@ -6,8 +6,14 @@
 #include "shaders.h"
 #include "standard_message_codec.h"
 
+
 #define FWR_MULTITOUCH_MAX 10
 
+enum fwr_cursor_mode {
+	FWR_CURSOR_PASSTHROUGH,
+	FWR_CURSOR_MOVE,
+	FWR_CURSOR_RESIZE,
+};
 struct fwr_input_state {
     uint32_t mouse_button_mask;
     uint32_t fl_mouse_button_mask;

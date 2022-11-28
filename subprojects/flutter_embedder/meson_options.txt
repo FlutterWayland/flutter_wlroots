@@ -1,2 +1,2 @@
-option('engine_commit', type: 'string', value: '890a5fca2e34db413be624fc83aeea8e61d42ce6', description: 'Commit of engine build to use')
-option('engine_embedder_hash', type: 'string', value: '2ab7c40a7aef8ba4b5766a930e95e3d5bd92c70d8d8d6cc3f28bb690ec030b14', description: 'If present, sha256 hash to validate embedder build')
+option('engine_commit', type: 'string', value: 'caaafc5604ee9172293eb84a381be6aadd660317', description: 'Commit of engine build to use')
+option('engine_embedder_hash', type: 'string', value: 'e4406385e65883db8389e2e061af5bb465564974adc53aff43b1b2c159b91ec0', description: 'If present, sha256 hash to validate embedder build')

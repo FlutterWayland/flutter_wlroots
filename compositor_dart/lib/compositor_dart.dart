@@ -1,3 +1,4 @@
+// ignore_for_file: public_member_api_docs, sort_constructors_first
 library compositor_dart;
 
 import 'dart:async';
@@ -11,6 +12,18 @@ import 'package:logging/logging.dart';
 
 enum KeyStatus { released, pressed }
 
+enum WindowEventType { maximize, minimize }
+
+class WindowEvent {
+  final WindowEventType windowEventType;
+  final int handle;
+
+  WindowEvent({
+    required this.windowEventType,
+    required this.handle,
+  });
+}
+
 class Surface {
   // This is actually used as a pointer on the compositor side.
   // It should always be returned exactly as is to the compositiors,
@@ -20,16 +33,42 @@ class Surface {
   final int pid;
   final int gid;
   final int uid;
-
-  final Compositor compositor;
+  final bool isPopup;
+  final int parentHandle;
+  final int surfaceWidth;
+  final int surfaceHeight;
+  final int offsetTop;
+  final int offsetLeft;
+  final int offsetRight;
+  final int offsetBottom;
+  final int contentWidth;
+  final int contentHeight;
+  bool isMaximized;
+  bool isMinimized;
 
   Surface({
     required this.handle,
     required this.pid,
     required this.gid,
     required this.uid,
-    required this.compositor,
+    required this.isPopup,
+    required this.parentHandle,
+    required this.surfaceWidth,
+    required this.surfaceHeight,
+    required this.offsetTop,
+    required this.offsetLeft,
+    required this.offsetRight,
+    required this.offsetBottom,
+    required this.contentWidth,
+    required this.contentHeight,
+    this.isMaximized = false,
+    this.isMinimized = false,
   });
+
+  @override
+  String toString() {
+    return 'Surface(handle: $handle, pid: $pid, gid: $gid, uid: $uid, isPopup: $isPopup, parentHandle: $parentHandle, isMaximized: $isMaximized, isMinimized: $isMinimized)';
+  }
 }
 
 class CompositorSockets {
@@ -41,7 +80,8 @@ class CompositorSockets {
 class _CompositorPlatform {
   final MethodChannel channel = const MethodChannel("wlroots");
 
-  final HashMap<String, Future<dynamic> Function(MethodCall)> handlers = HashMap();
+  final HashMap<String, Future<dynamic> Function(MethodCall)> handlers =
+      HashMap();
 
   _CompositorPlatform() {
     channel.setMethodCallHandler((call) async {
@@ -62,15 +102,18 @@ class _CompositorPlatform {
     handlers[method] = handler;
   }
 
-  Future<void> surfaceToplevelSetSize(Surface surface, int width, int height) async {
-    await channel.invokeListMethod("surface_toplevel_set_size", [surface.handle, width, height]);
+  Future<void> surfaceToplevelSetSize(
+      Surface surface, int width, int height) async {
+    await channel.invokeListMethod(
+        "surface_toplevel_set_size", [surface.handle, width, height]);
   }
 
   Future<void> clearFocus(Surface surface) async {
     await channel.invokeMethod("surface_clear_focus", [surface.handle]);
   }
 
-  Future<void> surfaceSendKey(Surface surface, int keycode, KeyStatus status, Duration timestamp) async {
+  Future<void> surfaceSendKey(Surface surface, int keycode, KeyStatus status,
+      Duration timestamp) async {
     await channel.invokeListMethod(
       "surface_keyboard_key",
       [
@@ -82,8 +125,13 @@ class _CompositorPlatform {
     );
   }
 
+  Future<void> surfaceFocusViewWithHandle(int handle) async {
+    await channel.invokeMethod("surface_focus_from_handle", [handle]);
+  }
+
   Future<CompositorSockets> getSocketPaths() async {
-    var response = await channel.invokeMethod("get_socket_paths") as Map<dynamic, dynamic>;
+    var response =
+        await channel.invokeMethod("get_socket_paths") as Map<dynamic, dynamic>;
     return CompositorSockets(
       wayland: response["wayland"] as String,
       x: response["x"] as String,
@@ -113,6 +161,7 @@ class Compositor {
   // Emits an event when a surface has been added and is ready to be presented on the screen.
   StreamController<Surface> surfaceMapped = StreamController.broadcast();
   StreamController<Surface> surfaceUnmapped = StreamController.broadcast();
+  StreamController<WindowEvent> windowEvents = StreamController.broadcast();
 
   int? keyToXkb(int physicalKey) => physicalToXkbMap[physicalKey];
 
@@ -123,40 +172,66 @@ class Compositor {
         pid: call.arguments["client_pid"],
         gid: call.arguments["client_gid"],
         uid: call.arguments["client_uid"],
-        compositor: this,
+        isPopup: call.arguments["is_popup"],
+        parentHandle: call.arguments["parent_handle"],
+        surfaceHeight: call.arguments['surface_height'],
+        surfaceWidth: call.arguments['surface_width'],
+        offsetTop: call.arguments['offset_top'],
+        offsetLeft: call.arguments['offset_left'],
+        offsetRight: call.arguments['offset_right'],
+        offsetBottom: call.arguments['offset_bottom'],
+        contentWidth: call.arguments['content_width'],
+        contentHeight: call.arguments['content_height'],
       );
-      surfaces[surface.handle] = surface;
+      surfaces.putIfAbsent(surface.handle, () => surface);
+
       surfaceMapped.add(surface);
     });
 
     platform.addHandler("surface_unmap", (call) async {
       int handle = call.arguments["handle"];
-      Surface surface = surfaces[handle]!;
-      surfaces.remove(handle);
-      surfaceUnmapped.add(surface);
+      if (surfaces.containsKey(handle)) {
+        Surface surface = surfaces[handle]!;
+        surfaces.remove(handle);
+        surfaceUnmapped.add(surface);
+      }
     });
 
     platform.addHandler("flutter/keyevent", (call) async {});
-  }
 
-  /// Returns `true` if we are currently running in the compositor embedder.
-  /// If so, all functionality in this library is available.
-  ///
-  /// Returns `false` in all other cases. If so, no funcitonality in this
-  /// library should be used.
-  Future<bool> isCompositor() async {
-    if (_isCompositor != null) return _isCompositor!;
+    platform.addHandler('window_maximize', (call) async {
+      int handle = call.arguments['handle'];
 
-    try {
-      await platform.channel.invokeMethod("is_compositor");
-      _isCompositor = true;
-    } on MissingPluginException {
-      _isCompositor = false;
+      windowEvents.add(WindowEvent(
+          windowEventType: WindowEventType.maximize, handle: handle));
+    });
+
+    platform.addHandler('window_minimize', (call) async {
+      int handle = call.arguments['handle'];
+
+      windowEvents.add(WindowEvent(
+          windowEventType: WindowEventType.minimize, handle: handle));
+    });
+
+    /// Returns `true` if we are currently running in the compositor embedder.
+    /// If so, all functionality in this library is available.
+    ///
+    /// Returns `false` in all other cases. If so, no funcitonality in this
+    /// library should be used.
+    Future<bool> isCompositor() async {
+      if (_isCompositor != null) return _isCompositor!;
+
+      try {
+        await platform.channel.invokeMethod("is_compositor");
+        _isCompositor = true;
+      } on MissingPluginException {
+        _isCompositor = false;
+      }
+
+      return _isCompositor!;
     }
 
-    return _isCompositor!;
+    /// Will return the paths of the compositor sockets.
+    Future<CompositorSockets> getSocketPaths() => platform.getSocketPaths();
   }
-
-  /// Will return the paths of the compositor sockets.
-  Future<CompositorSockets> getSocketPaths() => platform.getSocketPaths();
 }

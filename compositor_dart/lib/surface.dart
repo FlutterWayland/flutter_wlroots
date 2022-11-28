@@ -23,7 +23,7 @@ class _MeasureSizeRenderObject extends RenderProxyBox {
     if (oldSize == newSize) return;
 
     oldSize = newSize;
-    WidgetsBinding.instance?.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       onChange(newSize);
     });
   }
@@ -46,8 +46,15 @@ class _MeasureSize extends SingleChildRenderObjectWidget {
 
 class SurfaceView extends StatefulWidget {
   final Surface surface;
+  final Compositor compositor;
+  final Function(Surface surface)? onPointerClick;
 
-  const SurfaceView({Key? key, required this.surface}) : super(key: key);
+  const SurfaceView({
+    Key? key,
+    required this.surface,
+    required this.compositor,
+    this.onPointerClick,
+  }) : super(key: key);
 
   @override
   State<StatefulWidget> createState() {
@@ -61,7 +68,11 @@ class _SurfaceViewState extends State<SurfaceView> {
   @override
   void initState() {
     super.initState();
-    controller = _CompositorPlatformViewController(surface: widget.surface);
+    controller = _CompositorPlatformViewController(
+      surface: widget.surface,
+      compositor: widget.compositor,
+      onPointerClick: widget.onPointerClick,
+    );
   }
 
   @override
@@ -69,7 +80,11 @@ class _SurfaceViewState extends State<SurfaceView> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.surface != widget.surface) {
       controller.dispose();
-      controller = _CompositorPlatformViewController(surface: widget.surface);
+      controller = _CompositorPlatformViewController(
+        surface: widget.surface,
+        compositor: widget.compositor,
+        onPointerClick: widget.onPointerClick,
+      );
     }
   }
 
@@ -90,7 +105,7 @@ class _SurfaceViewState extends State<SurfaceView> {
           int? keycode = physicalToXkbMap[event.physicalKey.usbHidUsage];
 
           if (keycode != null) {
-            controller.surface.compositor.platform.surfaceSendKey(
+            controller.compositor.platform.surfaceSendKey(
               widget.surface,
               keycode,
               status,
@@ -120,18 +135,26 @@ class _SurfaceViewState extends State<SurfaceView> {
 }
 
 class _CompositorPlatformViewController extends PlatformViewController {
-  Surface surface;
+  final Surface surface;
+  final Compositor compositor;
+  final Function(Surface surface)? onPointerClick;
   Size size = const Size(100, 100);
 
-  _CompositorPlatformViewController({required this.surface});
+  _CompositorPlatformViewController({
+    required this.surface,
+    required this.compositor,
+    this.onPointerClick,
+  });
 
   void setSize(Size size) {
     this.size = size;
-    Compositor.compositor.platform.surfaceToplevelSetSize(surface, size.width.round(), size.height.round());
+    Compositor.compositor.platform.surfaceToplevelSetSize(
+        surface, size.width.round(), size.height.round());
   }
 
   @override
-  Future<void> clearFocus() => Compositor.compositor.platform.clearFocus(surface);
+  Future<void> clearFocus() =>
+      Compositor.compositor.platform.clearFocus(surface);
 
   @override
   Future<void> dispatchPointerEvent(PointerEvent event) async {
@@ -154,6 +177,9 @@ class _CompositorPlatformViewController extends PlatformViewController {
     Offset scrollAmount = Offset.zero;
     if (event is PointerDownEvent) {
       eventType = pointerDownEvent;
+      if (onPointerClick != null) {
+        onPointerClick!(surface);
+      }
     } else if (event is PointerUpEvent) {
       eventType = pointerUpEvent;
     } else if (event is PointerHoverEvent) {

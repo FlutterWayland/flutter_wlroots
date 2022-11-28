@@ -43,3 +43,4 @@ extern "C" bool handle_map_get(handle_map *map, uint32_t handle, void **out) {
         return true;
     }
 }
+
