@@ -137,6 +137,7 @@ class PlatformKeyboard {
 
       case 'TextInput.setClient':
         // arg: [client_id, https://api.flutter.dev/flutter/services/TextInputConfiguration-class.html]
+        assert(_keyboardClient == null);
         _keyboardClient = KeyboardClientController(
           connectionId: methodCall.arguments[0] as int,
           platformKeyboard: this,

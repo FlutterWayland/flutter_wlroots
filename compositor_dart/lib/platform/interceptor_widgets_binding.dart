@@ -5,27 +5,20 @@ import 'package:flutter/services.dart';
 class InterceptorWidgetsBinding extends WidgetsFlutterBinding {
   InterceptorBinaryMessenger? _binaryMessenger;
 
-  static WidgetsBinding? instance;
-
-  @override
-  void initInstances() {
-    super.initInstances();
-    _binaryMessenger = InterceptorBinaryMessenger(super.defaultBinaryMessenger);
-    instance = this;
-  }
-
   @override
   BinaryMessenger get defaultBinaryMessenger {
-    return _binaryMessenger == null
-        ? super.defaultBinaryMessenger
-        : _binaryMessenger!;
+    _binaryMessenger ??= InterceptorBinaryMessenger(super.defaultBinaryMessenger);
+    return _binaryMessenger!;
   }
 
   static WidgetsBinding ensureInitialized() {
-    if (InterceptorWidgetsBinding.instance == null) {
-      InterceptorWidgetsBinding();
+    try {
+      return WidgetsBinding.instance;
+    } on FlutterError {
+      var constructedBinding = InterceptorWidgetsBinding();
+      assert(constructedBinding == WidgetsBinding.instance);
+      return WidgetsBinding.instance;
     }
-    return InterceptorWidgetsBinding.instance!;
   }
 
   static void runApp(Widget app) {

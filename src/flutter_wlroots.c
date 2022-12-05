@@ -219,6 +219,7 @@ static void engine_cb_platform_message(
 
 error:
   // TODO(hansihe): Handle messages
+  //wlr_log(WLR_INFO, "Unhandled platform message: channel: %s %.*s", engine_message->channel, engine_message->message_size, engine_message->message);
   wlr_log(WLR_INFO, "Unhandled platform message: channel: %s", engine_message->channel);
 
   message_free(&name);

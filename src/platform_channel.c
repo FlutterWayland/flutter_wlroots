@@ -441,14 +441,17 @@ int platch_write_value_to_buffer_std(struct std_value* value, uint8_t **pbuffer)
 size_t platch_calc_value_size_json(struct json_value *value) {
 	size_t size = 0;
 
+	char numBuffer[32];
+
 	switch (value->type) {
 		case kJsonNull:
 		case kJsonTrue:
 			return 4;
 		case kJsonFalse:
 			return 5;
+		case kJsonInteger:
+			return sprintf(numBuffer, "%ld", value->integer_value);
 		case kJsonNumber: ;
-			char numBuffer[32];
 			return sprintf(numBuffer, "%g", value->number_value);
 		case kJsonString:
 			size = 2;
@@ -502,6 +505,9 @@ int platch_write_value_to_buffer_json(struct json_value* value, uint8_t **pbuffe
 			break;
 		case kJsonFalse:
 			*pbuffer += sprintf((char*) *pbuffer, "false");
+			break;
+		case kJsonInteger:
+		    *pbuffer += sprintf((char*) *pbuffer, "%ld", value->integer_value);
 			break;
 		case kJsonNumber:
 			*pbuffer += sprintf((char*) *pbuffer, "%g", value->number_value);
