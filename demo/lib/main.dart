@@ -67,27 +67,31 @@ class _MyAppState extends State<MyApp> {
   KeyboardClientController? keyboardClient;
   bool shown = false;
 
+  void _setClient(KeyboardClientController? client) {
+    print("setclient");
+    SchedulerBinding.instance!.addPostFrameCallback((duration) {
+      setState(() {
+        keyboardClient = client;
+        print(client?.inputConfiguration);
+      });
+    });
+  }
+
+  void _setShown(bool shown) {
+    SchedulerBinding.instance!.addPostFrameCallback((duration) {
+      setState(() {
+        this.shown = shown;
+      });
+    });
+  }
+
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return PlatformKeyboardWidget(
       callbacks: PlatformKeyboardCallbacks(
-        setClient: (client) {
-          print("setclient");
-          SchedulerBinding.instance!.addPostFrameCallback((duration) {
-            setState(() {
-              keyboardClient = client;
-              print(client?.inputConfiguration);
-            });
-          });
-        },
-        setShown: (shown) {
-          SchedulerBinding.instance!.addPostFrameCallback((duration) {
-            setState(() {
-              this.shown = shown;
-            });
-          });
-        },
+        setClient: _setClient,
+        setShown: _setShown,
       ),
       child: Stack(
         textDirection: TextDirection.ltr,

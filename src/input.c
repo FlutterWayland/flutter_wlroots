@@ -316,8 +316,8 @@ static void send_key_to_flutter(struct fwr_keyboard *keyboard, struct wlr_event_
         | (keyboard_state_is_capslock_active(kb_state) << 1)
         | (keyboard_state_is_ctrl_active(kb_state) << 2)
         | (keyboard_state_is_alt_active(kb_state) << 3)
-        | (keyboard_state_is_numlock_active(kb_state) << 4)
-        | (keyboard_state_is_meta_active(kb_state) << 28);
+        | (keyboard_state_is_numlock_active(kb_state) << 4);
+        //| (keyboard_state_is_meta_active(kb_state) << 28);
   uint16_t scan_code = (uint16_t)event->keycode + 8;
   xkb_keysym_t key_code = xkb_state_key_get_one_sym(kb_state, scan_code);
   uint32_t unicode = xkb_state_key_get_utf32(kb_state, scan_code);
@@ -373,7 +373,7 @@ static void send_key_to_flutter(struct fwr_keyboard *keyboard, struct wlr_event_
           /* unicodeScalarValues */   {.type = kJsonNumber, .number_value = (flType == kFlutterKeyEventTypeDown ? unicode : 0x0)},
           /* keyCode */               {.type = kJsonNumber, .number_value = (uint32_t) key_code},
           /* scanCode */              {.type = kJsonNumber, .number_value = scan_code},
-          /* modifiers */             {.type = kJsonNumber, .number_value = modifiers},
+          /* modifiers */             {.type = kJsonInteger, .number_value = modifiers},
           /* type */                  {.type = kJsonString, .string_value = type}
         }
       }

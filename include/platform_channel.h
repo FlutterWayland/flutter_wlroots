@@ -32,6 +32,7 @@ enum json_value_type {
     kJsonNull,
     kJsonTrue,
     kJsonFalse,
+    kJsonInteger,
     kJsonNumber,
     kJsonString,
     kJsonArray, 
@@ -41,6 +42,7 @@ struct json_value {
     enum json_value_type type;
     union {
         double number_value;
+        int64_t integer_value;
         char  *string_value;
         struct {
             size_t size;
